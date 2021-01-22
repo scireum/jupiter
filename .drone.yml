@@ -17,7 +17,7 @@ clone:
 
 steps:
   - name: compile
-    image: rust:1.46-slim
+    image: rust:1.49
     volumes: *scireum_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
@@ -32,7 +32,7 @@ steps:
         - push
 
   - name: test
-    image: rust:1.46-slim
+    image: rust:1.49
     volumes: *scireum_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
@@ -47,7 +47,7 @@ steps:
         - pull_request
 
   - name: package
-    image: rust:1.46-slim
+    image: rust:1.49
     volumes: *scireum_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
