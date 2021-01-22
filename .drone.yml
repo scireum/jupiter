@@ -64,7 +64,8 @@ steps:
       - cargo clippy -- -D warnings
       - cargo test
       - cargo login ${CARGO_LOGIN}
-      - cargo publish
+      - cargo publish --allow-dirty
+      - cargo build --release
       - cd ..
       - cd jupiter-io
       - cargo fmt -- --check
