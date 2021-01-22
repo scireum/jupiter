@@ -1,2 +1,7 @@
 /target
+jupiter-rs/target
+jupiter-io/target
 Cargo.lock
+jupiter-io/repository
+jupiter-io/settings.yml
+jupiter_test_config.yml

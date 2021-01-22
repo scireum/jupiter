@@ -1,0 +1,45 @@
+[package]
+name = "jupiter"
+version = "0.0.1"
+authors = ["scireum GmbH <info@scireum.de>"]
+edition = "2018"
+license = "MIT"
+description = "Jupiter is a library for providing high-throughput ultra low latency services via the RESP protocol as defined by Redis."
+readme = "../README.md"
+repository = "https://github.com/scireum/jupiter"
+categories = ["caching", "database-implementations", "network-programming"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1.0.0", features = ["full"] }
+tokio-util = { version = "0.6.0", features = ["compat"] }
+tokio-stream = "0.1.0"
+log = { version = "0.4.11", features = ["max_level_debug", "release_max_level_info"] }
+bytes = "1.0.0"
+simplelog = "0.9.0"
+anyhow = "1.0.36"
+num-traits = "0.2.14"
+num-derive = "0.3.3"
+yaml-rust = "0.4.4"
+quick-xml = { version = "0.20.0", features = ["encoding"] }
+linked-hash-map = "0.5.3"
+encoding_rs = "0.8.26"
+arc-swap = "1.1.0"
+lazy_static = "1.4.0"
+regex = "1.4.2"
+memcmp = "0.0.6"
+memchr = "2.3.4"
+num_cpus = "1.13.0"
+chrono = "0.4.19"
+jemalloc-ctl = "0.3.3"
+serde_json = "1.0.60"
+mock_instant = "0.2.1"
+hyper = { version = "0.14.2", features = ["full"] }
+futures = "0.3.8"
+async-trait = "0.1.42"
+fnv = "1.0.7"
+csv = "1.1.5"
+
+[dev-dependencies]
+redis = "0.18.0"
+itertools = "0.9.0"

@@ -1,0 +1,101 @@
+---
+scireum_volumes: &scireum_volumes
+  - name: docker_socket
+    path: /var/run/docker.sock
+  - name: cargo
+    path: /var/.cargo
+
+kind: pipeline
+name: default
+
+platform:
+  os: linux
+  arch: amd64
+
+clone:
+  depth: 1
+
+steps:
+  - name: compile
+    image: rust:1.46-slim
+    volumes: *scireum_volumes
+    commands:
+      - export CARGO_HOME="/var/.cargo"
+      - echo $CARGO_HOME
+      - cd jupiter-rs
+      - cargo build
+      - cd ..
+      - cd jupiter-io
+      - cargo build
+    when:
+      event:
+        - push
+
+  - name: test
+    image: rust:1.46-slim
+    volumes: *scireum_volumes
+    commands:
+      - export CARGO_HOME="/var/.cargo"
+      - echo $CARGO_HOME
+      - export RUSTFLAGS="-Dwarnings"
+      - cd jupiter-rs
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
+    when:
+      event:
+        - pull_request
+
+  - name: package
+    image: rust:1.46-slim
+    volumes: *scireum_volumes
+    commands:
+      - export CARGO_HOME="/var/.cargo"
+      - echo $CARGO_HOME
+      - export RUSTFLAGS="-Dwarnings"
+      - "sed -i 's/0.0.1/${DRONE_TAG}/g' jupiter-rs/Cargo.toml"
+      - "sed -i 's/DEVELOPMENT-SNAPSHOT/${DRONE_TAG}/g' jupiter-rs/src/builder.rs"
+      - "sed -i 's/NO-REVISION/${DRONE_COMMIT_SHA}/g' jupiter-rs/src/builder.rs"
+      - "sed -i 's/0.0.1/${DRONE_TAG}/g' jupiter-io/Cargo.toml"
+      - cd jupiter-rs
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
+      - cargo login ${CARGO_LOGIN}
+      - cargo publish
+      - cd ..
+      - cd jupiter-io
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
+      - cargo build --release
+    environment:
+      CARGO_LOGIN:
+        from_secret: cargo_login
+    when:
+      event:
+        - tag
+
+  - name: publish
+    image: plugins/docker
+    volumes: *scireum_volumes
+    settings:
+      dockerfile: jupiter-io/Dockerfile
+      repo: scireum/jupiter-rs-jupiter-io
+      tags:
+        - "${DRONE_TAG}"
+    environment:
+      DOCKER_PASSWORD:
+        from_secret: docker_password
+      DOCKER_USERNAME:
+        from_secret: docker_username
+    when:
+      event:
+        - tag
+volumes:
+    - name: docker_socket
+      host:
+        path: /var/run/docker.sock
+    - name: cargo
+      host:
+        path: /var/.cargo

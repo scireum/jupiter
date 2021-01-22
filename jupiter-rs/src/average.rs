@@ -1,47 +1,48 @@
+//! Provides a helper which computes a average of a series of values.
+//!
+//! This is intended to be used when measuring the system performance which is often tracked as
+//! averages (e.g. execution duration of commands).
+//!
+//! An [Average](Average) is internally mutable without needing a mutable reference as we rely on
+//! atomic intrinsics as provided by modern processors / compilers.
+//!
+//! # Example
+//!
+//! ```
+//! # use jupiter::average::Average;
+//! let avg = Average::new();
+//! avg.add(10);
+//! avg.add(20);
+//! avg.add(30);
+//!
+//! assert_eq!(avg.avg(), 20);
+//! assert_eq!(avg.count(), 3);
+//! ```
+use crate::fmt::format_micros;
 use std::fmt;
 use std::fmt::Display;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
 
-pub fn format_micros(micros: i32, f: &mut dyn fmt::Write) -> fmt::Result {
-    return if micros < 1_000 {
-        write!(f, "{} us", micros)
-    } else if micros < 10_000 {
-        write!(f, "{:.2} ms", micros as f64 / 1_000.)
-    } else if micros < 100_000 {
-        write!(f, "{:.1} ms", micros as f64 / 1_000.)
-    } else if micros < 1_000_000 {
-        write!(f, "{} ms", micros / 1_000)
-    } else if micros < 10_000_000 {
-        write!(f, "{:.2} s", micros as f64 / 1_000_000.)
-    } else if micros < 100_000_000 {
-        write!(f, "{:.1} s", micros as f64 / 1_000_000.)
-    } else {
-        write!(f, "{} s", micros / 1_000_000)
-    };
-}
-
-pub struct Watch {
-    start: Instant
-}
-
-impl Watch {
-    pub fn start() -> Watch {
-        Watch { start: Instant::now() }
-    }
-
-    pub fn micros(&self) -> i32 {
-        self.start.elapsed().as_micros() as i32
-    }
-}
-
-impl Display for Watch {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let micros = self.micros();
-        format_micros(micros, f)
-    }
-}
-
+/// Computes a sliding average of a series of values.
+///
+/// This is intended to record performance measurements and to keep track of the sliding average
+/// as well as the total number of recorded values.
+///
+/// Note that this class overflows gracefully.
+///
+/// # Example
+///
+/// ```
+/// # use jupiter::average::Average;
+/// let avg = Average::new();
+/// avg.add(10);
+/// avg.add(20);
+/// avg.add(30);
+///
+/// assert_eq!(avg.avg(), 20);
+/// assert_eq!(avg.count(), 3);
+/// ```
+#[derive(Default)]
 pub struct Average {
     sum_and_count: AtomicU64,
     count: AtomicU64,
@@ -57,6 +58,7 @@ impl Clone for Average {
 }
 
 impl Average {
+    /// Creates a new average.
     pub fn new() -> Average {
         Average {
             sum_and_count: AtomicU64::new(0),
@@ -69,9 +71,25 @@ impl Average {
         let count = (last_sum_and_count & 0xFFFFFFFF) as i32;
         let sum = ((last_sum_and_count >> 32) & 0xFFFFFFFF) as i32;
 
-        return (sum, count);
+        (sum, count)
     }
 
+    /// Adds another value to be added to the average calculation.
+    ///
+    /// Internally we simply update the global u64 counter to keep track of the total recorded
+    /// values. Additionally, we have another u64 which is split into two i32 fields. One of these
+    /// is used to keep the actual count of the sliding average and another is used to store the
+    /// sum of the values.
+    ///
+    /// Whenever we recorded 100 values or the sum counter might overflow, we divide both values
+    /// by two and add the new values. This yields a sliding average which is fit for our purposes.
+    ///
+    /// As the main task is to store the average duration of a task in microseconds, the i32 sum
+    /// field shouldn't overflow under normal conditions.
+    ///
+    /// We perform this trickery (splitting a single field into two) so that this algorithm is
+    /// completely lock and wait free, as we only utilize atomic load and store operations. This
+    /// guarantees correctness while ensuring maximal performance.
     pub fn add(&self, value: i32) {
         self.count.fetch_add(1, Ordering::Relaxed);
 
@@ -79,28 +97,32 @@ impl Average {
 
         while count > 100 || sum as i64 + value as i64 > std::i32::MAX as i64 {
             sum = count / 2 * sum / count;
-            count = count / 2;
+            count /= 2;
         }
 
         sum += value;
         count += 1;
 
         let next_sum_and_count = (sum as u64 & 0xFFFFFFFF) << 32 | (count as u64 & 0xFFFFFFFF);
-        self.sum_and_count.store(next_sum_and_count, Ordering::Relaxed);
+        self.sum_and_count
+            .store(next_sum_and_count, Ordering::Relaxed);
     }
 
+    /// Returns the total number of recorded values (unless an overflow of the internal u64 counter
+    /// occurred).
     pub fn count(&self) -> u64 {
         self.count.load(Ordering::Relaxed)
     }
 
+    /// Computes the sliding average of the last 100 values.
     pub fn avg(&self) -> i32 {
         let (sum, count) = self.sum_and_count();
 
-        return if sum == 0 {
+        if sum == 0 {
             0
         } else {
             sum / count
-        };
+        }
     }
 }
 
@@ -114,30 +136,7 @@ impl Display for Average {
 
 #[cfg(test)]
 mod test {
-    use crate::watch::{Average, format_micros, Watch};
-
-    fn format(micros: i32) -> String {
-        let mut result = String::new();
-        format_micros(micros, &mut result).unwrap_or_default();
-
-        return result;
-    }
-
-    #[test]
-    fn formatting_works_as_expected() {
-        let w = Watch::start();
-        println!("{}", w);
-        assert_eq!(format(1), "1 us");
-        assert_eq!(format(12), "12 us");
-        assert_eq!(format(123), "123 us");
-        assert_eq!(format(1230), "1.23 ms");
-        assert_eq!(format(12300), "12.3 ms");
-        assert_eq!(format(123000), "123 ms");
-        assert_eq!(format(1230000), "1.23 s");
-        assert_eq!(format(12300000), "12.3 s");
-        assert_eq!(format(123000000), "123 s");
-        println!("{}", w);
-    }
+    use crate::average::Average;
 
     #[test]
     fn empty_average_is_properly_initialized() {
@@ -149,7 +148,9 @@ mod test {
     #[test]
     fn average_with_some_values_works() {
         let avg = Average::new();
-        for i in 1..=10 { avg.add(i); }
+        for i in 1..=10 {
+            avg.add(i);
+        }
         assert_eq!(avg.avg(), 5);
         assert_eq!(avg.count(), 10);
     }
@@ -164,7 +165,9 @@ mod test {
     #[test]
     fn average_with_many_values_keeps_count() {
         let avg = Average::new();
-        for i in 1..=1000 { avg.add(i); }
+        for i in 1..=1000 {
+            avg.add(i);
+        }
         assert_eq!(avg.avg(), 928);
         assert_eq!(avg.count(), 1000);
     }
