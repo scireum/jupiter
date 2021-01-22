@@ -53,6 +53,8 @@ steps:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
       - export RUSTFLAGS="-Dwarnings"
+      - rustup component add rustfmt
+      - rustup component add clippy
       - "sed -i 's/0.0.1/${DRONE_TAG}/g' jupiter-rs/Cargo.toml"
       - "sed -i 's/DEVELOPMENT-SNAPSHOT/${DRONE_TAG}/g' jupiter-rs/src/builder.rs"
       - "sed -i 's/NO-REVISION/${DRONE_COMMIT_SHA}/g' jupiter-rs/src/builder.rs"
