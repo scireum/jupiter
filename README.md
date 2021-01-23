@@ -8,7 +8,7 @@ We at [scireum](https://www.scireum.de) use **Jupiter** in conjunction with our 
 Java framework [SIRIUS](https://github.com/scireum/sirius-kernel) to build web based
 applications.
 
-For more infos and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
+More infos and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
 
 # Deployment
 
