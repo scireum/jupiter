@@ -84,7 +84,7 @@ steps:
     volumes: *scireum_volumes
     settings:
       dockerfile: jupiter-io/Dockerfile
-      repo: scireum/jupiter-rs-jupiter-io
+      repo: scireum/jupiter-io
       tags:
         - "${DRONE_TAG}"
     environment:
