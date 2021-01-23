@@ -52,6 +52,7 @@ steps:
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
+      - echo $CARGO_LOGIN
       - export RUSTFLAGS="-Dwarnings"
       - rustup component add rustfmt
       - rustup component add clippy
@@ -63,7 +64,7 @@ steps:
       - cargo fmt -- --check
       - cargo clippy -- -D warnings
       - cargo test
-      - cargo login ${CARGO_LOGIN}
+      - cargo login $CARGO_LOGIN
       - cargo publish --allow-dirty
       - cargo build --release
       - cd ..
