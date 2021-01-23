@@ -40,7 +40,7 @@
 //! * **LRU.XGET**: `LRU.XGET cache key` will behave just like **LRU.GET**. However, its output is
 //!   a bit more elaborate. It will always respond with three values: ACTIVE, REFRESH, VALUE. If
 //!   no value was found for the given key, ACTIVE and REFRESH will be 0 and VALUE will be an empty
-//!   string. If a non-stale entry way found, ACTIVE is 0, REFRESH is 0 an VALUE will be the value
+//!   string. If a non-stale entry way found, ACTIVE is 1, REFRESH is 0 an VALUE will be the value
 //!   associated with the key. Now the interesting part: If a stale entry (older than *soft_ttl* but
 //!   younger than *hard_ttl*) was found, ACTIVE will be 0. For the first client to request this
 //!   entry, REFRESH will be 1 and the VALUE will be the stale value associated with the key. For
