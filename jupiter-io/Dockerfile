@@ -1,7 +1,7 @@
 FROM rust:1.49-slim
 
 RUN mkdir /jupiter
-COPY io/target/release/jupiter-io /jupiter/jupiter-io
+COPY target/release/jupiter-io /jupiter/jupiter-io
 RUN chmod +x /jupiter/jupiter-io
 
 VOLUME /jupiter/settings.yml

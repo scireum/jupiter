@@ -52,7 +52,6 @@ steps:
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
-      - echo $CARGO_LOGIN
       - export RUSTFLAGS="-Dwarnings"
       - rustup component add rustfmt
       - rustup component add clippy
