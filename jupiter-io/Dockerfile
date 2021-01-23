@@ -1,4 +1,4 @@
-FROM rust:1.46-slim
+FROM rust:1.49-slim
 
 RUN mkdir /jupiter
 COPY io/target/release/jupiter-io /jupiter/jupiter-io
