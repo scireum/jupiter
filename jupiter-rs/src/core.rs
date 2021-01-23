@@ -15,6 +15,8 @@ use crate::server::Server;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
+use crate::config::Config;
+use anyhow::Context;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -25,6 +27,7 @@ enum Commands {
     Connections,
     Kill,
     Mem,
+    SetConfig,
 }
 
 /// Installs the diagnostic commands into the given platform.
@@ -40,7 +43,8 @@ pub fn install(platform: Arc<Platform>) {
             Commands::Connections as usize,
         );
         commands.register_command("SYS.KILL", queue.clone(), Commands::Kill as usize);
-        commands.register_command("SYS.MEM", queue, Commands::Mem as usize);
+        commands.register_command("SYS.MEM", queue.clone(), Commands::Mem as usize);
+        commands.register_command("SYS.SET_CONFIG", queue, Commands::SetConfig as usize);
     }
 }
 
@@ -52,6 +56,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
 
     tokio::spawn(async move {
         let server = platform.require::<Server>();
+        let config = platform.require::<Config>();
         let commands = platform.require::<CommandDictionary>();
 
         loop {
@@ -65,6 +70,9 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                     }
                     Some(Commands::Kill) => kill_command(&mut call, &server).complete(call),
                     Some(Commands::Mem) => mem_command(&mut call).complete(call),
+                    Some(Commands::SetConfig) => {
+                        set_config_command(&mut call, &config).await.complete(call)
+                    }
                     _ => call.handle_unknown_token(),
                 },
                 _ => return,
@@ -116,6 +124,17 @@ fn kill_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     } else {
         Err(CommandError::ServerError(anyhow::anyhow!("Unknown peer!")))
     }
+}
+
+async fn set_config_command(call: &mut Call, config: &Arc<Config>) -> CommandResult {
+    let new_config = call
+        .request
+        .str_parameter(0)
+        .context("Expected a valid YAML config as parameter.")?;
+    config.store(new_config).await?;
+
+    call.response.ok()?;
+    Ok(())
 }
 
 fn commands_command(call: &mut Call, commands: &Arc<CommandDictionary>) -> CommandResult {
@@ -191,9 +210,9 @@ mod tests {
                 .require::<Config>()
                 .load_from_string(
                     "
-                server:
-                    port: 1503
-            ",
+                           server:
+                                port: 1503
+                         ",
                     None,
                 )
                 .unwrap();
@@ -222,6 +241,19 @@ mod tests {
                 query_redis_async(|con| redis::cmd("SYS.MEM").query::<String>(con))
                     .await
                     .is_some(),
+                true
+            );
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
+                    .arg(
+                        "
+                    server:
+                        port: 1503
+                    "
+                    )
+                    .query::<String>(con))
+                .await
+                .is_some(),
                 true
             );
 
