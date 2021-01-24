@@ -56,7 +56,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
 
     tokio::spawn(async move {
         let server = platform.require::<Server>();
-        let config = platform.require::<Config>();
+        let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();
 
         loop {
@@ -126,15 +126,20 @@ fn kill_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     }
 }
 
-async fn set_config_command(call: &mut Call, config: &Arc<Config>) -> CommandResult {
-    let new_config = call
-        .request
-        .str_parameter(0)
-        .context("Expected a valid YAML config as parameter.")?;
-    config.store(new_config).await?;
-
-    call.response.ok()?;
-    Ok(())
+async fn set_config_command(call: &mut Call, config: &Option<Arc<Config>>) -> CommandResult {
+    if let Some(config) = config {
+        let new_config = call
+            .request
+            .str_parameter(0)
+            .context("Expected a valid YAML config as parameter.")?;
+        config.store(new_config).await?;
+        call.response.ok()?;
+        Ok(())
+    } else {
+        Err(CommandError::ServerError(anyhow::anyhow!(
+            "Config is not enabled for this setup!"
+        )))
+    }
 }
 
 fn commands_command(call: &mut Call, commands: &Arc<CommandDictionary>) -> CommandResult {
@@ -243,19 +248,23 @@ mod tests {
                     .is_some(),
                 true
             );
+
             assert_eq!(
                 query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
                     .arg(
                         "
-                    server:
-                        port: 1503
-                    "
+                        server:
+                            port: 1503
+                        "
                     )
                     .query::<String>(con))
                 .await
                 .is_some(),
                 true
             );
+
+            // try to deleted the test-config so that it doesn't interfere with other tests...
+            let _ = std::fs::remove_file("settings.yml");
 
             // KILL requires at least one parameter...
             assert_eq!(
