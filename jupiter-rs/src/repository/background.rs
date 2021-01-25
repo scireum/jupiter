@@ -13,6 +13,7 @@ use anyhow::Context;
 use chrono::DateTime;
 use futures::TryStreamExt;
 use hyper::{Body, Client, Request, Uri};
+use hyper_tls::HttpsConnector;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -392,17 +393,26 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     if !force {
         if let Ok(metadata) = tokio::fs::metadata(&effective_path).await {
             if let Ok(file_modified) = metadata.modified() {
-                let req = Request::builder()
+                let request = Request::builder()
                     .method("HEAD")
                     .uri(url)
                     .body(Body::empty())
                     .context("Failed to build request.")?;
-                let client = Client::new();
-                let res = client
-                    .request(req)
-                    .await
-                    .context("Failed fetching file headers.")?;
-                if let Some(Ok(last_modified)) = res
+                let response = if url.starts_with("https") {
+                    let https = HttpsConnector::new();
+                    let client = Client::builder().build::<_, Body>(https);
+                    client
+                        .request(request)
+                        .await
+                        .context("Failed fetching file headers.")?
+                } else {
+                    let client = Client::new();
+                    client
+                        .request(request)
+                        .await
+                        .context("Failed fetching file headers.")?
+                };
+                if let Some(Ok(last_modified)) = response
                     .headers()
                     .get(hyper::header::LAST_MODIFIED)
                     .map(|str| DateTime::parse_from_rfc2822(str.to_str().unwrap_or("")))
@@ -432,10 +442,18 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         .await
         .context("Failed to open destination file.")?;
 
-    let client = Client::new();
-    let response = client
-        .get(Uri::from_str(url).context("Invalid uri")?)
-        .await?;
+    let response = if url.starts_with("https") {
+        let https = HttpsConnector::new();
+        let client = Client::builder().build::<_, Body>(https);
+        client
+            .get(Uri::from_str(url).context("Invalid uri")?)
+            .await?
+    } else {
+        let client = Client::new();
+        client
+            .get(Uri::from_str(url).context("Invalid uri")?)
+            .await?
+    };
 
     let mut reader = to_tokio_async_read(
         response
