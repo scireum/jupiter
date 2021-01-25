@@ -25,7 +25,7 @@
 //!         # Specifies the refresh interval for LRU.XGET. If this command delivers a stale entry
 //!         # (as defined by soft_ttl), it indicates that the entry is stale an should be
 //!         # refreshed. However, once this has to be signalled to a client, it will no longer
-//!         # request a refresh from other clients until either the entry has been refresehd or
+//!         # request a refresh from other clients until either the entry has been refreshed or
 //!         # this refresh interval has elapsed.
 //!         refresh_interval: 30s
 //! ```
