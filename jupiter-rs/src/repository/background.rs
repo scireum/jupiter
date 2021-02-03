@@ -419,7 +419,7 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
                 {
                     if file_modified >= last_modified.into() {
                         log::info!(
-                            "Now downloading {} as {} hasn't changed since its last download",
+                            "Not downloading {} as {} hasn't changed since its last download",
                             path,
                             url
                         );
@@ -436,24 +436,23 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         "".to_string()
     };
 
-    let mut tmp_path = effective_path.clone();
-    tmp_path.set_extension(current_extension + ".part");
-    let mut file = File::create(&tmp_path)
-        .await
-        .context("Failed to open destination file.")?;
-
+    let uri = Uri::from_str(url).context("Invalid uri")?;
     let response = if url.starts_with("https") {
         let https = HttpsConnector::new();
         let client = Client::builder().build::<_, Body>(https);
-        client
-            .get(Uri::from_str(url).context("Invalid uri")?)
-            .await?
+        client.get(uri).await?
     } else {
         let client = Client::new();
-        client
-            .get(Uri::from_str(url).context("Invalid uri")?)
-            .await?
+        client.get(uri).await?
     };
+
+    if !response.status().is_success() {
+        return Err(anyhow::anyhow!(
+            "Failed to download {}: {}",
+            url,
+            response.status()
+        ));
+    }
 
     let mut reader = to_tokio_async_read(
         response
@@ -466,7 +465,15 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
             .into_async_read(),
     );
 
-    tokio::io::copy(&mut reader, &mut file).await?;
+    let mut tmp_path = effective_path.clone();
+    tmp_path.set_extension(current_extension + ".part");
+    let mut file = File::create(&tmp_path)
+        .await
+        .context("Failed to open destination file.")?;
+
+    tokio::io::copy(&mut reader, &mut file)
+        .await
+        .context("Failed to perform download.")?;
     file.flush().await.context("Failed to flush data to disk")?;
 
     if tokio::fs::metadata(&effective_path).await.is_ok() {
