@@ -8,4 +8,5 @@ VOLUME /jupiter/settings.yml
 VOLUME /jupiter/repository
 
 EXPOSE 2410/tcp
-CMD ["/jupiter/jupiter-io"]
+WORKDIR /jupiter
+CMD ["jupiter-io"]
