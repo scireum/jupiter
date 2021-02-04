@@ -614,7 +614,7 @@ mod tests {
                 .unwrap();
             assert_eq!(
                 std::str::from_utf8(&result[..]).unwrap(),
-                "*3\r\n:0\r\n:0\r\n$3\r\nbar\r\n"
+                "*3\r\n:1\r\n:0\r\n$3\r\nbar\r\n"
             );
 
             // one the refresh period has passed, XGET will once again ask us to refresh the stale

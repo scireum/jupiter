@@ -258,7 +258,8 @@ impl<V: ByteSize> LRUCache<V> {
     /// there is no need to refresh anything. For the first time, a stale entry (its value) is
     /// returned by this function, the REFRESH flag is returned as **true**. Any subsequent call
     /// for this entry will then return **false** until either the value is refreshed (via **put**)
-    /// or after **refresh_interval** has expired.
+    /// or after **refresh_interval** has expired. During this period, the entry will be reported
+    /// as ACTIVE again so that it can be distinguished from a fully stale entry.
     ///
     /// This can be used to lazy update stale content.
     ///
@@ -284,8 +285,8 @@ impl<V: ByteSize> LRUCache<V> {
     /// // Due to the exotic settings of the cache, the entry is immediately stale and a refresh
     /// // is requested...
     /// assert_eq!(lru.extended_get("Foo").unwrap(), (false, true, &"Bar".to_owned()));
-    /// // ..but not for again for the next 2s.
-    /// assert_eq!(lru.extended_get("Foo").unwrap(), (false, false, &"Bar".to_owned()));
+    /// // ..but not for again for the next 2s (in the meantime it is reported as non-stale).
+    /// assert_eq!(lru.extended_get("Foo").unwrap(), (true, false, &"Bar".to_owned()));
     ///
     /// // If we add a value again, it is also again immediately stale and a refresh would be
     /// // requested...
@@ -301,13 +302,22 @@ impl<V: ByteSize> LRUCache<V> {
             Some(entry) if entry.hard_ttl > now => {
                 self.hits += 1;
 
-                let alive = entry.soft_ttl > now;
-                let refresh = if !alive && entry.next_refresh_request <= now {
-                    entry.next_refresh_request = now + self.refresh_interval;
-                    true
-                } else {
-                    false
-                };
+                let mut alive = entry.soft_ttl > now;
+                let mut refresh = false;
+
+                if !alive {
+                    // If the current entry is stale, we determine if we should ask for a refresh..
+                    if entry.next_refresh_request <= now {
+                        // Yes, we did not instruct another caller recently to perform a refresh...
+                        entry.next_refresh_request = now + self.refresh_interval;
+                        refresh = true;
+                    } else {
+                        // We already asked another caller to refresh. In the meantime we pretend
+                        // that the entry is still valid so that it will be used (otherwise it
+                        // looks like a stale result...)
+                        alive = true;
+                    }
+                }
 
                 Some((alive, refresh, &entry.value))
             }
@@ -787,7 +797,7 @@ mod tests {
 
         assert_eq!(
             lru.extended_get("Foo").unwrap(),
-            (false, false, &"Bar".to_owned())
+            (true, false, &"Bar".to_owned())
         );
 
         MockClock::advance(Duration::from_secs(2 * 60));
