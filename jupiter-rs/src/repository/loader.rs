@@ -216,6 +216,7 @@ impl Debug for LoaderInfo {
 /// Lists the external commands provided by this actor.
 #[derive(FromPrimitive)]
 pub enum LoaderCommands {
+    /// Represents the `LIST` command.
     List,
 }
 
@@ -228,7 +229,7 @@ pub fn actor(
     mut background_task_sender: mpsc::Sender<BackgroundCommand>,
 ) -> Queue {
     let (command_queue, mut commands_endpoint) = queue();
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         use crate::commands::ResultExt;
 
         let mut loaders = HashMap::new();
@@ -348,7 +349,7 @@ async fn loader_changed(
         },
     };
 
-    loaders.insert(data_file.to_owned(), new_loader.clone());
+    let _ = loaders.insert(data_file.to_owned(), new_loader.clone());
 
     if enabled {
         background_task_sender

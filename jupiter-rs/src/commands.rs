@@ -154,8 +154,13 @@ use crate::server::Connection;
 /// expectations of the server.
 #[derive(Debug)]
 pub enum CommandError {
+    /// Represents an error which occurred while building the output.
     OutputError(OutputError),
+
+    /// Represents a client sided error (invalid input).
     ClientError(anyhow::Error),
+
+    /// Represents a server sided error.
     ServerError(anyhow::Error),
 }
 
@@ -315,6 +320,7 @@ impl Call {
         }
     }
 
+    /// Handles an unknown token by completing with an appropriate error.
     pub fn handle_unknown_token(self) {
         let token = self.token;
         self.complete(Err(CommandError::ServerError(anyhow::anyhow!(
@@ -350,7 +356,9 @@ pub fn queue() -> (Queue, Endpoint) {
 ///
 /// This is made public so that the management APIs can provide access to the utilization metrics.
 pub struct Command {
+    /// Contains the name of the command.
     pub name: &'static str,
+
     queue: Queue,
     token: usize,
     call_metrics: Average,
@@ -364,7 +372,7 @@ impl Command {
 
     /// Returns the average call duration in micro seconds.
     pub fn avg_duration(&self) -> i32 {
-        self.call_metrics.avg() as i32
+        self.call_metrics.avg()
     }
 }
 

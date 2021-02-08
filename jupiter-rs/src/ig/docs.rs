@@ -138,10 +138,12 @@ impl Doc {
         Query { path }
     }
 
+    /// Provides mutable access on the underlying symbol table.
     pub fn symbols_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbols
     }
 
+    /// Provides readonly access on the symbol table.
     pub fn symbols(&self) -> &SymbolTable {
         &self.symbols
     }

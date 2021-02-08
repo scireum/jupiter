@@ -399,7 +399,9 @@ impl<T: PartialEq> Trie<T> {
 
 /// A simple convenience type which gracefully handles the Option::None case for Trie::query.
 pub enum OptionalIter<'a, T> {
+    /// Represents a match.
     Found(Iter<'a, T>),
+    /// Represents a miss.
     Empty,
 }
 
@@ -456,7 +458,7 @@ impl<'a, T> Iterator for PrefixIter<'a, T> {
                 }
             } else {
                 // No branches left for this node, pop the stack and continue with the parent node..
-                self.stack.pop();
+                let _ = self.stack.pop();
             }
         }
 

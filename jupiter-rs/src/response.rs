@@ -86,6 +86,7 @@ pub struct Response {
     nesting: Vec<i32>,
 }
 
+/// Represnets a separator used when outputting management data.
 pub static SEPARATOR: &str =
     "-------------------------------------------------------------------------------\n";
 
@@ -116,7 +117,7 @@ impl Response {
         match *current_nesting {
             nesting if nesting > 0 => Ok(()),
             nesting if nesting == 0 => {
-                self.nesting.pop();
+                let _ = self.nesting.pop();
                 Ok(())
             }
             _ => Err(OutputError::ProtocolError(anyhow!(

@@ -121,7 +121,7 @@ impl Table {
         for index_type in indices {
             let query = doc.compile(index_type.field_name());
             let field_symbol = doc.symbols_mut().find_or_create(index_type.field_name())?;
-            known_indices.insert(field_symbol);
+            let _ = known_indices.insert(field_symbol);
 
             for (row, element) in doc.root().iter().enumerate() {
                 // Fetch the raw value..
@@ -140,7 +140,7 @@ impl Table {
                                 exact: true,
                             },
                         );
-                        dedup_set.insert(value.to_string());
+                        let _ = dedup_set.insert(value.to_string());
                     }
                 });
 
@@ -164,7 +164,7 @@ impl Table {
                                         exact: false,
                                     },
                                 );
-                                dedup_set.insert(token.to_string());
+                                let _ = dedup_set.insert(token.to_string());
                             }
                         });
                     });
@@ -250,7 +250,7 @@ impl Table {
             for field in fields_string.split(',') {
                 if let Some(field_symbol) = self.doc.symbols().resolve(field) {
                     if self.known_indices.contains(&field_symbol) {
-                        fields.insert(field_symbol);
+                        let _ = fields.insert(field_symbol);
                     } else {
                         // This field or path is not indexed -> abort to a list of scan queries...
                         return self.compile_scan_fields(fields_string);
@@ -395,18 +395,22 @@ impl Table {
 
 /// Represents the various strategies used to iterate over contents or query results within a table.
 pub enum TableIter<'a> {
+    /// Represents an iterator which is based on a direct index hit.
     ExactIndexQuery(
         &'a Doc,
         Option<&'a Vec<IndexEntry>>,
         Option<fnv::FnvHashSet<Symbol>>,
         usize,
     ),
+    /// Represents an iterator which is based on a prefix hit within the index.
     PrefixIndexQuery(
         &'a Doc,
         PrefixIter<'a, IndexEntry>,
         Option<fnv::FnvHashSet<Symbol>>,
     ),
+    /// Represents an iterator which scans over all index items to check for matches.
     ScanQuery(&'a Doc, Vec<Query>, &'a str, usize),
+    /// Represents an iterator which represents all entries in the index.
     TableScan(&'a Doc, usize),
 }
 

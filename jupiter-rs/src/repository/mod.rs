@@ -199,7 +199,7 @@ impl Repository {
     /// A loader can be referenced by a loader descriptor and will subsequently be invoked
     /// once the reference file or the loader descriptor itself changes.
     pub fn register_loader(&self, name: String, loader: Arc<dyn Loader>) {
-        self.loaders.lock().unwrap().insert(name, loader);
+        let _ = self.loaders.lock().unwrap().insert(name, loader);
     }
 
     /// Resolves the given name into a [Loader].
