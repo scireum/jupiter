@@ -224,31 +224,43 @@ async fn handle_call(mut call: Call, database: &HashMap<String, Arc<Table>>) {
 
 /// Creates a response for `IDB.SHOW_TABLES`.
 fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) -> CommandResult {
-    let mut result = String::new();
+    if call.request.parameter_count() == 0 {
+        let mut result = String::new();
 
-    result += format!(
-        "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
-        "Name", "Num Rows", "Memory", "Queries", "Scan Qrys", "Scans"
-    )
-    .as_str();
-    result += crate::response::SEPARATOR;
-
-    for (name, table) in database {
         result += format!(
             "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
-            name,
-            table.len(),
-            format_size(table.allocated_memory()),
-            table.num_queries(),
-            table.num_scan_queries(),
-            table.num_scans()
+            "Name", "Num Rows", "Memory", "Queries", "Scan Qrys", "Scans"
         )
         .as_str();
+        result += crate::response::SEPARATOR;
+
+        for (name, table) in database {
+            result += format!(
+                "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
+                name,
+                table.len(),
+                format_size(table.allocated_memory()),
+                table.num_queries(),
+                table.num_scan_queries(),
+                table.num_scans()
+            )
+            .as_str();
+        }
+        result += crate::response::SEPARATOR;
+
+        call.response.bulk(result)?;
+    } else {
+        call.response.array(database.len() as i32)?;
+        for (name, table) in database {
+            call.response.array(6)?;
+            call.response.bulk(name)?;
+            call.response.number(table.len() as i64)?;
+            call.response.number(table.allocated_memory() as i64)?;
+            call.response.number(table.num_queries() as i64)?;
+            call.response.number(table.num_scan_queries() as i64)?;
+            call.response.number(table.num_scans() as i64)?;
+        }
     }
-    result += crate::response::SEPARATOR;
-
-    call.response.bulk(result)?;
-
     Ok(())
 }
 
@@ -437,7 +449,7 @@ where
         response.number(iter.count() as i64)?;
     } else {
         let mut results = Vec::new();
-        let max_results = limit.min(MAX_RESULTS) as usize;
+        let max_results = limit.min(MAX_RESULTS);
         for row in iter {
             if results.len() >= max_results {
                 break;
