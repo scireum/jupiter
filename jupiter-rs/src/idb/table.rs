@@ -443,11 +443,11 @@ impl<'a> Iterator for TableIter<'a> {
             // and also filter out matches, which do not belong to our selected fields...
             TableIter::PrefixIndexQuery(doc, iter, de_dup, fields) => {
                 for hit in iter {
-                    if fields.is_none() || fields.as_ref().unwrap().contains(&hit.field) {
-                        if !de_dup.contains(&hit.row) {
-                            let _ = de_dup.insert(hit.row);
-                            return Some(doc.root().at(hit.row));
-                        }
+                    if (fields.is_none() || fields.as_ref().unwrap().contains(&hit.field))
+                        && !de_dup.contains(&hit.row)
+                    {
+                        let _ = de_dup.insert(hit.row);
+                        return Some(doc.root().at(hit.row));
                     }
                 }
 
