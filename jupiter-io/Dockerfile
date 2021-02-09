@@ -9,4 +9,4 @@ VOLUME /jupiter/repository
 
 EXPOSE 2410/tcp
 WORKDIR /jupiter
-CMD ["jupiter-io"]
+CMD ["/jupiter/jupiter-io"]
