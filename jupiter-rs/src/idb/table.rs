@@ -313,6 +313,7 @@ impl Table {
                     Ok(TableIter::PrefixIndexQuery(
                         &self.doc,
                         self.index.prefix_query(value.to_lowercase().as_str()),
+                        fnv::FnvHashSet::default(),
                         None,
                     ))
                 }
@@ -329,6 +330,7 @@ impl Table {
                     Ok(TableIter::PrefixIndexQuery(
                         &self.doc,
                         self.index.prefix_query(value.to_lowercase().as_str()),
+                        fnv::FnvHashSet::default(),
                         Some(fields),
                     ))
                 }
@@ -406,6 +408,7 @@ pub enum TableIter<'a> {
     PrefixIndexQuery(
         &'a Doc,
         PrefixIter<'a, IndexEntry>,
+        fnv::FnvHashSet<usize>,
         Option<fnv::FnvHashSet<Symbol>>,
     ),
     /// Represents an iterator which scans over all index items to check for matches.
@@ -438,10 +441,13 @@ impl<'a> Iterator for TableIter<'a> {
             }
             // For prefix matches, we can simply operate on the underlying PrefixIter of the Trie
             // and also filter out matches, which do not belong to our selected fields...
-            TableIter::PrefixIndexQuery(doc, iter, fields) => {
+            TableIter::PrefixIndexQuery(doc, iter, de_dup, fields) => {
                 for hit in iter {
                     if fields.is_none() || fields.as_ref().unwrap().contains(&hit.field) {
-                        return Some(doc.root().at(hit.row));
+                        if !de_dup.contains(&hit.row) {
+                            let _ = de_dup.insert(hit.row);
+                            return Some(doc.root().at(hit.row));
+                        }
                     }
                 }
 
