@@ -121,10 +121,15 @@ impl Config {
         }
     }
 
+    /// Determines the last modified date of the config file on disk.
+    ///
+    /// As within docker, the file is presented as volume, we check that it is a file, as an
+    /// unmounted docker volume is always presented as directory.
     async fn last_modified(&self) -> Option<SystemTime> {
         tokio::fs::metadata(&self.filename)
             .await
             .ok()
+            .filter(|meta| meta.is_file())
             .and_then(|meta| meta.modified().ok())
     }
 
@@ -133,6 +138,13 @@ impl Config {
     /// Note that this is normally called by the framework and should not be invoked manually.
     pub async fn load(&self) -> anyhow::Result<()> {
         log::info!("Loading config file {}...", &self.filename);
+
+        if let Ok(metadata) = tokio::fs::metadata(&self.filename).await {
+            if !metadata.is_file() {
+                log::info!("Config file doesn't exist or is an unmounted docker volume - skipping config load.");
+                return Ok(());
+            }
+        }
 
         let config_data = match tokio::fs::read_to_string(&self.filename).await {
             Ok(data) => data,
