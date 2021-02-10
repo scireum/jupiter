@@ -126,6 +126,7 @@ impl Config {
     ///
     /// As within docker, the file is presented as volume, we check that it is a file, as an
     /// unmounted docker volume is always presented as directory.
+    #[cfg(not(test))]
     async fn last_modified(&self) -> Option<SystemTime> {
         tokio::fs::metadata(&self.filename)
             .await
@@ -316,6 +317,15 @@ pub async fn install(platform: Arc<Platform>) {
     }
 
     // Install a change listener which runs every 2s...
+    run_config_change_monitor(platform, config);
+}
+#[cfg(test)]
+fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
+    // No automatic updates during testing...
+}
+
+#[cfg(not(test))]
+fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
     tokio::spawn(async move {
         while platform.is_running() {
             tokio::time::sleep(Duration::from_secs(2)).await;
