@@ -55,7 +55,7 @@
 //! # }
 //! ```
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use arc_swap::ArcSwap;
 use yaml_rust::{Yaml, YamlLoader};
@@ -320,7 +320,7 @@ pub async fn install(platform: Arc<Platform>) {
     run_config_change_monitor(platform, config);
 }
 #[cfg(test)]
-fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
+fn run_config_change_monitor(_platform: Arc<Platform>, _config: Arc<Config>) {
     // No automatic updates during testing...
 }
 
@@ -328,7 +328,7 @@ fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
 fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
     tokio::spawn(async move {
         while platform.is_running() {
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             // This will contain the last modified date of the file on disk or be None if the
             // file is absent...
             let last_modified = config.last_modified().await;
