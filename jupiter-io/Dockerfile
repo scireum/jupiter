@@ -4,6 +4,8 @@ RUN mkdir /jupiter
 COPY /jupiter-io/target/release/jupiter-io /jupiter/jupiter-io
 RUN chmod +x /jupiter/jupiter-io
 
+RUN touch /jupiter/settings.yml
+
 VOLUME /jupiter/settings.yml
 VOLUME /jupiter/repository
 
