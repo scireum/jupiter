@@ -1,6 +1,6 @@
 //! Contains the system configuration.
 //!
-//! Provides access to the system configuration which is loaded from the **settings.yml** file.
+//! Provides access to the system configuration which is loaded from the **config/settings.yml** file.
 //! Note that we observe this file for changes and reload it once a change is detected. Therefore
 //! each user of the config should attach itself to the [Config::notifier](Config::notifier) and
 //! re-process the config once a change message is received.
@@ -64,6 +64,7 @@ use crate::ig::docs::{Doc, Element};
 use crate::ig::yaml::hash_to_doc;
 use crate::platform::Platform;
 use anyhow::Context;
+use std::path::Path;
 
 /// Provides access to the system configuration.
 ///
@@ -296,8 +297,17 @@ impl Handle {
 /// Note that this method is also called by the [Builder](crate::builder::Builder) unless the
 /// **Config** part is disabled.
 pub async fn install(platform: Arc<Platform>) {
+    // Create the "config" directory in case it doesn't exist...
+    let path = Path::new("config").to_path_buf();
+    if let Err(error) = tokio::fs::create_dir_all(path.clone()).await {
+        log::warn!(
+            "Failed to create config base directory {}: {}",
+            path.to_string_lossy(),
+            error
+        )
+    }
     // Install a config instance and point it to "settings.yml"..
-    let config = Arc::new(Config::new("settings.yml"));
+    let config = Arc::new(Config::new("config/settings.yml"));
     platform.register::<Config>(config.clone());
 
     // Actually try to read the file...
