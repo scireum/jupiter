@@ -28,6 +28,10 @@ docker image is provided under **Jupiter IO** - IO as in the moon of jupiter, no
 > SYS.COMMANDS
 ```
 
+Note that the two volumes `/jupiter/config` and `/jupiter/repository` should
+be mounted to docker volumes or external directories so that the data is kept
+alive once the container is updated.
+
 # Configuration
 
 The configuration is loaded from **settings.yml** - modification of this file are detected and
