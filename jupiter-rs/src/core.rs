@@ -6,6 +6,10 @@
 //! * **SYS.KILL**: Terminates the connection to the given client (selected by its peer address).
 //! * **SYS.MEM**: Reports the amount of currently allocated memory.
 //!
+//! Note that for development purposes in debug builds a command named **SYS.PANIC** is added as
+//! well. All this does is raising a panic which will eventually most probably crash the tokio
+//! thread or the whole process itself.
+//!
 //! [install](install) is invoked by the [Builder](crate::builder::Builder) unless disabled.
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult};
 use crate::fmt::{format_short_duration, format_size};
@@ -28,6 +32,8 @@ enum Commands {
     Kill,
     Mem,
     SetConfig,
+    #[cfg(debug_assertions)]
+    Panic,
 }
 
 /// Installs the diagnostic commands into the given platform.
@@ -44,7 +50,13 @@ pub fn install(platform: Arc<Platform>) {
         );
         commands.register_command("SYS.KILL", queue.clone(), Commands::Kill as usize);
         commands.register_command("SYS.MEM", queue.clone(), Commands::Mem as usize);
-        commands.register_command("SYS.SET_CONFIG", queue, Commands::SetConfig as usize);
+        commands.register_command(
+            "SYS.SET_CONFIG",
+            queue.clone(),
+            Commands::SetConfig as usize,
+        );
+        #[cfg(debug_assertions)]
+        commands.register_command("SYS.PANIC", queue, Commands::Panic as usize);
     }
 }
 
@@ -73,6 +85,8 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                     Some(Commands::SetConfig) => {
                         set_config_command(&mut call, &config).await.complete(call)
                     }
+                    #[cfg(debug_assertions)]
+                    Some(Commands::Panic) => panic_command(&mut call).complete(call),
                     _ => call.handle_unknown_token(),
                 },
                 _ => return,
@@ -188,6 +202,11 @@ fn mem_command(call: &mut Call) -> CommandResult {
     }
 
     Ok(())
+}
+
+#[cfg(debug_assertions)]
+fn panic_command(_call: &mut Call) -> CommandResult {
+    panic!("A program termination has been requested!");
 }
 
 #[cfg(test)]

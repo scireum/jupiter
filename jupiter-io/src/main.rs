@@ -3,6 +3,7 @@ use jupiter::server::Server;
 
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
+use std::panic::{set_hook, take_hook};
 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -10,6 +11,19 @@ static GLOBAL: Jemalloc = Jemalloc;
 
 #[tokio::main]
 async fn main() {
+    // Installs a panic handler which crashes the whole process instead of tying to survive with
+    // a missing tokio background thread. Having a panic in a tokio thread is quite ugly, as the
+    // server seems to be healthy from the outside but won't handle any incoming commands.
+    //
+    // Therefore we crash the whole process on purpose and hope for an external watchdog like
+    // docker-compose to create a new container which is in a sane and consistent state.
+    let original_panic_handler = take_hook();
+    set_hook(Box::new(move |panic_info| {
+        original_panic_handler(panic_info);
+        eprintln!("PROGRAM ALARM: A panic occurred in a thread. Crashing the whole process to enable a clean restart...");
+        std::process::exit(-1);
+    }));
+
     // Build a platform and enable all features...
     let platform = Builder::new().enable_all().build().await;
 
