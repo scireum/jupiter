@@ -73,6 +73,7 @@ impl PartialEq for IndexEntry {
 pub struct Table {
     doc: Doc,
     index: Trie<IndexEntry>,
+    default_lang_query: Query,
     known_indices: fnv::FnvHashSet<Symbol>,
     queries: AtomicUsize,
     scan_queries: AtomicUsize,
@@ -91,6 +92,10 @@ enum SearchFields {
     Scan(Vec<Query>),
 }
 
+/// Contains the (fake) language code used to retrieve a fallback or placeholder value if no
+/// proper translation is present.
+const DEFAULT_LANG: &str = "xx";
+
 impl Table {
     /// Creates a new table from the given doc while building a lookup index for the given paths.
     ///
@@ -98,10 +103,12 @@ impl Table {
     pub fn new(mut doc: Doc, indices: Vec<IndexType>) -> anyhow::Result<Self> {
         let mut trie = Trie::new();
         let known_indices = Table::build_indices(&mut doc, indices, &mut trie)?;
+        let default_lang_query = doc.compile(DEFAULT_LANG).clone();
 
         Ok(Table {
             doc,
             index: trie,
+            default_lang_query,
             known_indices,
             queries: AtomicUsize::new(0),
             scan_queries: AtomicUsize::new(0),
@@ -392,6 +399,11 @@ impl Table {
     /// The returned value is in bytes.
     pub fn allocated_memory(&self) -> usize {
         self.doc.allocated_size() + self.index.allocated_size()
+    }
+
+    /// Returns the selector or query for the fallback/default language ("xx").
+    pub fn default_lang_query(&self) -> &Query {
+        &self.default_lang_query
     }
 }
 

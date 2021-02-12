@@ -35,10 +35,12 @@
 //!   by ".") within the given table. If a result is found, the values for path1..pathN are
 //!   extracted and returned. If no path is given, the number of matches is returned. If multiple
 //!   documents match, only the first one if returned.
-//! * **IDB.LOOKUP**: `IDB.ILOOKUP table primary_lang fallback_lang search_path filter_value path1`
+//! * **IDB.ILOOKUP**: `IDB.ILOOKUP table primary_lang fallback_lang search_path filter_value path1`
 //!   Behaves just like `IDB.LOOKUP`. However, of one of the given extraction paths points to an
 //!   inner map, we expect this to be a map of translation where we first try to find the value for
-//!   the primary language and if none is found for the fallback language.
+//!   the primary language and if none is found for the fallback language. Note that, if both languages
+//!   fail to yield a value, we attempt to resolve a final fallback using **xx** as language
+//!   code.
 //! * **IDB.QUERY**: `IDB.QUERY table num_skip max_results search_path filter_value path1`
 //!   Behaves just like lookup, but doesn't just return the first result, but skips over the first
 //!  `num_skip` results and then outputs up to `max_result` rows. Not that this is again limited to
@@ -87,6 +89,10 @@
 //! `IDB.LOOKUP countries name.de Deutschland code` for a reverse lookup yielding "D" again.
 //! Note that even `IDB.LOOKUP countries name Deutschland code` would work here, as we
 //! index all translations for a field.
+//!
+//! Note that if both languages given in an `IDB.ILOOKUP` (or `IDB.ISEARCH`, `IDB.ISCAN`) don't
+//! yield a value, we check if a final fallback value for the code **xx** is present. This might
+//! be usable if there is a default value and only one or a few languages differ.
 //!
 //! We could invoke `IDB.ISEARCH countries en de 0 5 * deutsch code name` to retrieve "D", "Germany"
 //! e.g. to provide autocomplete values for a country field.
@@ -355,6 +361,7 @@ fn execute_query(
         limit as usize,
         primary_lang,
         fallback_lang,
+        table.default_lang_query(),
     )?;
 
     Ok(())
@@ -383,6 +390,7 @@ fn execute_scan(call: &mut Call, table: Arc<Table>, translate: bool) -> CommandR
         skip_and_limit.1 as usize,
         primary_lang,
         fallback_lang,
+        table.default_lang_query(),
     )?;
 
     Ok(())
@@ -397,22 +405,22 @@ fn parse_langs(
 ) -> anyhow::Result<(Option<Query>, Option<Query>)> {
     if translate {
         *parameter_index += 2;
-        Ok((
-            Some(
-                table.compile(
-                    call.request
-                        .str_parameter(*parameter_index - 2)
-                        .context("Missing primary language as parameter.")?,
-                ),
-            ),
-            Some(
-                table.compile(
-                    call.request
-                        .str_parameter(*parameter_index - 1)
-                        .context("Missing fallback language as parameter.")?,
-                ),
-            ),
-        ))
+        let primary_lang = call
+            .request
+            .str_parameter(*parameter_index - 2)
+            .context("Missing primary language as parameter.")?;
+        let fallback_lang = call
+            .request
+            .str_parameter(*parameter_index - 1)
+            .context("Missing fallback language as parameter.")?;
+        if primary_lang != fallback_lang {
+            Ok((
+                Some(table.compile(primary_lang)),
+                Some(table.compile(fallback_lang)),
+            ))
+        } else {
+            Ok((Some(table.compile(primary_lang)), None))
+        }
     } else {
         Ok((None, None))
     }
@@ -441,6 +449,7 @@ fn emit_results<'a, I>(
     limit: usize,
     primary_lang: Option<Query>,
     fallback_lang: Option<Query>,
+    default_lang: &Query,
 ) -> anyhow::Result<()>
 where
     I: Iterator<Item = Element<'a>>,
@@ -467,6 +476,7 @@ where
                     response,
                     primary_lang.as_ref(),
                     fallback_lang.as_ref(),
+                    Some(default_lang),
                 )?;
             }
         }
@@ -480,6 +490,7 @@ fn emit_element(
     response: &mut Response,
     primary_lang: Option<&Query>,
     fallback_lang: Option<&Query>,
+    default_lang: Option<&Query>,
 ) -> anyhow::Result<()> {
     if let Some(string) = element.as_str() {
         response.bulk(string)?;
@@ -490,7 +501,7 @@ fn emit_element(
     } else if element.is_list() {
         response.array(element.len() as i32)?;
         for child in element.iter() {
-            emit_element(child, response, primary_lang, fallback_lang)?;
+            emit_element(child, response, primary_lang, fallback_lang, default_lang)?;
         }
     } else if !emit_translated(element, primary_lang, response)?
         && !emit_translated(element, fallback_lang, response)?
@@ -509,7 +520,7 @@ fn emit_translated(
     if let Some(lang) = lang {
         let translated = lang.execute(element);
         if !translated.is_empty() {
-            emit_element(translated, response, Some(lang), None)?;
+            emit_element(translated, response, Some(lang), None, None)?;
             return Ok(true);
         }
     }
@@ -633,6 +644,24 @@ mod tests {
             assert_eq!(result[0][0].0, "Austria");
             assert_eq!(result[0][0].1, "Österreich");
 
+            // Ensure fallbacks to the "xx" key work....
+            let result = query_redis_async(|con| {
+                redis::cmd("IDB.ILOOKUP")
+                    .arg("countries")
+                    .arg("it")
+                    .arg("it")
+                    .arg("code")
+                    .arg("A")
+                    .arg("name")
+                    .arg("name.de")
+                    .query::<Vec<Vec<(String, String)>>>(con)
+            })
+            .await
+            .unwrap();
+            assert_eq!(result[0][0].0, "Test");
+            assert_eq!(result[0][0].1, "Österreich");
+
+            // Ensure seaches work....
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.SEARCH")
                     .arg("countries")
@@ -711,6 +740,7 @@ iso:
 name:
   de: "Österreich"
   en: "Austria"
+  xx: "Test"
         "#;
 
         let rows = YamlLoader::load_from_str(input).unwrap();
