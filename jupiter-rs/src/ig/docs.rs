@@ -101,6 +101,8 @@ impl Doc {
     /// A query is composed of a chain of keys separated by ".". For nested objects,
     /// we apply one key after another to obtain the resulting target element.
     ///
+    /// Note that "." represents an identity query which returns the element itself.
+    ///
     /// # Example
     /// ```
     /// # use jupiter::ig::builder::DocBuilder;
@@ -112,26 +114,34 @@ impl Doc {
     /// let doc = builder.build_object(object_builder);
     ///
     /// let query = doc.compile("Foo.Bar");
-    /// assert_eq!(query.execute(doc.root()).as_int().unwrap(), 42)
+    /// assert_eq!(query.execute(doc.root()).as_int().unwrap(), 42);
+    ///
+    /// let query = doc.compile(".");
+    /// assert!(query.execute(doc.root()).is_object());
     /// ```
     ///
     /// # Performance
     /// Compiling queries is rather fast, therefore ad-hoc queries can be executed using
-    /// [Element::query](Element::query). Therefore pre-compiled queries
-    /// are only feasible if a query is known to be executed several times (e.g. when iterating
-    /// over a list of objects and executing the same query each time).
+    /// [Element::query](Element::query). Pre-compiled queries are only feasible if a query is
+    /// known to be executed several times (e.g. when iterating over a list of objects and executing
+    /// the same query each time).
     ///
     /// Also note that if we encounter an unknown symbol here, we know that the query cannot be
     /// fullfilled and therefore return an empty query here which always yields and empty
     /// result without any actual work being done.
     pub fn compile(&self, query: impl AsRef<str>) -> Query {
-        let mut path = Vec::new();
+        let query = query.as_ref();
+        if "." == query {
+            return Query { path: Vec::new() };
+        }
 
-        for part in query.as_ref().split('.') {
+        let mut path = Vec::new();
+        for part in query.split('.') {
             if let Some(symbol) = self.symbols.resolve(part) {
                 path.push(symbol);
             } else {
-                return Query { path: Vec::new() };
+                // Creates a "poisoned" query which will always yield an empty result...
+                return Query { path: vec![-1] };
             }
         }
 
@@ -557,14 +567,16 @@ impl Query {
     /// let doc = builder.build_object(object_builder);
     ///
     /// let query = doc.compile("Foo.Bar");
-    /// assert_eq!(query.execute(doc.root()).as_int().unwrap(), 42)
+    /// assert_eq!(query.execute(doc.root()).as_int().unwrap(), 42);
+    ///
+    /// let query = doc.compile("XXX.UNKNOWN");
+    /// assert!(query.execute(doc.root()).is_empty());
+    ///
+    /// let query = doc.compile(".");
+    /// assert!(query.execute(doc.root()).is_object());
     /// ```
     pub fn execute<'a>(&self, element: Element<'a>) -> Element<'a> {
-        let mut current_node = if self.path.is_empty() {
-            &Node::Empty
-        } else {
-            element.node
-        };
+        let mut current_node = element.node;
 
         for key in self.path.iter() {
             if let Node::Object(map) = current_node {

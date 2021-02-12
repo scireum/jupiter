@@ -94,6 +94,9 @@
 //! yield a value, we check if a final fallback value for the code **xx** is present. This might
 //! be usable if there is a default value and only one or a few languages differ.
 //!
+//! Also note that the whole element being matched can be requested when using "." as field path,
+//! e.g. `IDB.LOOKUP countries code D .`
+//!
 //! We could invoke `IDB.ISEARCH countries en de 0 5 * deutsch code name` to retrieve "D", "Germany"
 //! e.g. to provide autocomplete values for a country field.
 use std::collections::HashMap;
@@ -356,6 +359,7 @@ fn execute_query(
     emit_results(
         &call.request,
         &mut call.response,
+        &table,
         parameter_index,
         &mut iter,
         limit as usize,
@@ -385,6 +389,7 @@ fn execute_scan(call: &mut Call, table: Arc<Table>, translate: bool) -> CommandR
     emit_results(
         &call.request,
         &mut call.response,
+        &table,
         parameter_index,
         &mut iter,
         skip_and_limit.1 as usize,
@@ -444,6 +449,7 @@ fn parse_limits(call: &Call, parameter_index: &mut usize) -> anyhow::Result<(i32
 fn emit_results<'a, I>(
     request: &Request,
     response: &mut Response,
+    table: &Arc<Table>,
     parameter_index: usize,
     iter: &'a mut I,
     limit: usize,
@@ -467,12 +473,16 @@ where
             results.push(row);
         }
 
+        let queries = (parameter_index..request.parameter_count())
+            .map(|index| table.compile(request.str_parameter(index).unwrap_or(".")))
+            .collect::<Vec<Query>>();
+
         response.array(results.len() as i32)?;
         for row in results {
             response.array(request.parameter_count() as i32 - parameter_index as i32)?;
-            for i in parameter_index..request.parameter_count() {
+            for query in &queries {
                 emit_element(
-                    row.query(request.str_parameter(i)?),
+                    query.execute(row),
                     response,
                     primary_lang.as_ref(),
                     fallback_lang.as_ref(),
@@ -503,9 +513,19 @@ fn emit_element(
         for child in element.iter() {
             emit_element(child, response, primary_lang, fallback_lang, default_lang)?;
         }
-    } else if !emit_translated(element, primary_lang, response)?
-        && !emit_translated(element, fallback_lang, response)?
-    {
+    } else if element.is_object() {
+        if !emit_translated(element, primary_lang, response)?
+            && !emit_translated(element, fallback_lang, response)?
+            && !emit_translated(element, default_lang, response)?
+        {
+            response.array(element.len() as i32)?;
+            for (key, child) in element.entries() {
+                response.array(2)?;
+                response.bulk(key)?;
+                emit_element(child, response, primary_lang, fallback_lang, default_lang)?;
+            }
+        }
+    } else {
         response.empty_string()?;
     }
 
@@ -598,7 +618,7 @@ mod tests {
                 query_redis_async(|con| redis::cmd("IDB.SCAN").arg("countries").query::<i32>(con))
                     .await
                     .unwrap(),
-                2
+                3
             );
 
             // Perform some lookups...
@@ -628,6 +648,23 @@ mod tests {
             assert_eq!(result[0][0].0, "at");
             assert_eq!(result[0][0].1, "aut");
 
+            // Ensure that querying "." returns the whole element...
+            let result = query_redis_async(|con| {
+                redis::cmd("IDB.LOOKUP")
+                    .arg("countries")
+                    .arg("code")
+                    .arg("X")
+                    .arg(".")
+                    .query::<Vec<Vec<Vec<Vec<String>>>>>(con)
+            })
+            .await
+            .unwrap();
+            assert_eq!(result[0][0][0][0], "code");
+            assert_eq!(result[0][0][0][1], "X");
+            assert_eq!(result[0][0][1][0], "name");
+            assert_eq!(result[0][0][1][1], "Test");
+
+            // Ensure translations work...
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.ILOOKUP")
                     .arg("countries")
@@ -741,6 +778,9 @@ name:
   de: "Österreich"
   en: "Austria"
   xx: "Test"
+---
+code: "X"
+name: Test
         "#;
 
         let rows = YamlLoader::load_from_str(input).unwrap();
