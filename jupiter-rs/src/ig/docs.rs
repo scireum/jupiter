@@ -591,6 +591,64 @@ impl Query {
             node: current_node,
         }
     }
+
+    /// Executes this query against the given element and returns all matches.
+    ///
+    /// # Example
+    /// There might be several matches if there is an inner list in the doc:
+    /// ```
+    ///
+    /// use yaml_rust::YamlLoader;
+    /// use jupiter::ig::yaml::list_to_doc;
+    /// let input = r#"
+    /// test:
+    ///     - foo:
+    ///         label: bar
+    ///     - foo:
+    ///         label: baz
+    ///         "#;
+    ///
+    /// let rows = YamlLoader::load_from_str(input).unwrap();
+    /// let doc = list_to_doc(rows.as_slice()).unwrap();
+    ///
+    ///
+    /// let query = doc.compile("test.foo.label");
+    /// let matches = query.execute_all(doc.root());
+    /// assert_eq!(matches.len(), 2);
+    /// assert_eq!(matches[0].as_str().unwrap(), "bar");
+    /// assert_eq!(matches[1].as_str().unwrap(), "baz");
+    /// ```
+    pub fn execute_all<'a>(&self, element: Element<'a>) -> Vec<Element<'a>> {
+        let mut result = Vec::new();
+        self.execute_into(0, element.doc, element.node, &mut result);
+
+        result
+    }
+
+    fn execute_into<'a>(
+        &self,
+        index: usize,
+        doc: &'a Doc,
+        node: &'a Node,
+        results: &mut Vec<Element<'a>>,
+    ) {
+        if let Some(key) = self.path.get(index) {
+            if let Node::Object(map) = node {
+                self.execute_into(
+                    index + 1,
+                    doc,
+                    map.get(*key).unwrap_or(&Node::Empty),
+                    results,
+                );
+            } else if let Node::List(list) = node {
+                for child in list {
+                    self.execute_into(index, doc, child, results);
+                }
+            }
+        } else {
+            results.push(Element { doc, node });
+        }
+    }
 }
 
 impl Debug for Element<'_> {

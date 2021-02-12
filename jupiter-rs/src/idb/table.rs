@@ -131,50 +131,50 @@ impl Table {
             let _ = known_indices.insert(field_symbol);
 
             for (row, element) in doc.root().iter().enumerate() {
-                // Fetch the raw value..
-                let child = query.execute(element);
-
                 let mut dedup_set = fnv::FnvHashSet::default();
 
-                // Extract all exact matches and insert them into the index...
-                Table::search_values(child, |value| {
-                    if !dedup_set.contains(value) {
-                        trie.insert_unique(
-                            value,
-                            IndexEntry {
-                                field: field_symbol,
-                                row,
-                                exact: true,
-                            },
-                        );
-                        let _ = dedup_set.insert(value.to_string());
-                    }
-                });
-
-                if let IndexType::FulltextIndex(_) = index_type {
-                    // Extract and tokenize all loose matches and insert them into the index.
-                    // Note that this has to be performed in a 2nd step, as a value can be a list or
-                    // even a nested object, where we always need to first store all exact values
-                    // and then collect the loose matches (which are not already present as exact
-                    // match).
-                    // An example would be a list which contains the entries "hello world" and "hello".
-                    // As the tokenized version of "hello world" would also emit "hello" (as loose
-                    // term) we first want to collect it as exact term.
+                // Fetch the raw value..
+                for child in query.execute_all(element) {
+                    // Extract all exact matches and insert them into the index...
                     Table::search_values(child, |value| {
-                        Table::tokenize(value, |token| {
-                            if !dedup_set.contains(token) {
-                                trie.insert_unique(
-                                    token,
-                                    IndexEntry {
-                                        field: field_symbol,
-                                        row,
-                                        exact: false,
-                                    },
-                                );
-                                let _ = dedup_set.insert(token.to_string());
-                            }
-                        });
+                        if !dedup_set.contains(value) {
+                            trie.insert_unique(
+                                value,
+                                IndexEntry {
+                                    field: field_symbol,
+                                    row,
+                                    exact: true,
+                                },
+                            );
+                            let _ = dedup_set.insert(value.to_string());
+                        }
                     });
+
+                    if let IndexType::FulltextIndex(_) = index_type {
+                        // Extract and tokenize all loose matches and insert them into the index.
+                        // Note that this has to be performed in a 2nd step, as a value can be a list or
+                        // even a nested object, where we always need to first store all exact values
+                        // and then collect the loose matches (which are not already present as exact
+                        // match).
+                        // An example would be a list which contains the entries "hello world" and "hello".
+                        // As the tokenized version of "hello world" would also emit "hello" (as loose
+                        // term) we first want to collect it as exact term.
+                        Table::search_values(child, |value| {
+                            Table::tokenize(value, |token| {
+                                if !dedup_set.contains(token) {
+                                    trie.insert_unique(
+                                        token,
+                                        IndexEntry {
+                                            field: field_symbol,
+                                            row,
+                                            exact: false,
+                                        },
+                                    );
+                                    let _ = dedup_set.insert(token.to_string());
+                                }
+                            });
+                        });
+                    }
                 }
             }
         }
