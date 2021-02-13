@@ -314,7 +314,10 @@ async fn loader_changed(
     let loader = config["loader"].as_str().context("")?;
     let namespace = config["namespace"].as_str().context("")?.to_owned();
 
-    if let Some(info) = loaders.get_mut(&file.name) {
+    if let Some(info) = loaders
+        .values_mut()
+        .find(|info| file.path == info.loader_file)
+    {
         if info.needs_reload().await? {
             info.enabled = namespaces.contains(&namespace);
             if info.enabled {
