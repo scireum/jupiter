@@ -8,6 +8,19 @@ We at [scireum](https://www.scireum.de) use **Jupiter** in conjunction with our 
 Java framework [SIRIUS](https://github.com/scireum/sirius-kernel) to build web based
 applications.
 
+Next to providing a framework for custom services, Jupiter also provides some common modules:
+
+* **LRU-Cache**: An size constraint cache with an intelligent refresh strategy which can be used
+  to maintain low latency response times by employing a coordinated asynchronous cache update
+  pattern (see `LRU.XGET).
+* **InfoGraphDB**: Provides a fast and flexible static database for master data. Using the
+  **Repository** this can be used to load master data from e.g. an S3 Bucket or a git repository
+  into fast lookup tables or code sets. These permit to perform all kinds of lookups, reverse-lookups,
+  "search as you type" searches and automatic translation management (even for tables with
+  thousands of rows / structured documents).
+* **Repository**: The repository is used to fetch files from various sources and invoking
+  appropriate loaders so that the data can be used (e.g. as IDB table or set).
+
 More infos and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
 
 # Deployment
@@ -164,7 +177,12 @@ If all modules are enabled, the following commands are available.
 * `IDB.ISCAN table primary_lang fallback_lang num_skip max_results path1 path2 path3`
   Again, behaves just like `IDB.SCAN` but provides i18n lookup for the given languages.
 * `IDB.SHOW_TABLES` reports all tables and their usage statistics.
-
+* `IDB.SHOW_SETS` reports all sets and their usage statistics.
+* `IDB.CONTAINS set key1 key2 key3` reports if the given keys are contained
+  in the given set. For each key a **1** (contained) or a **0** (not contained) will be reported.
+* `IDB.INDEX_OF set key1 key2 key3` reports the insertion index for each
+  of the given keys using one-based indices.
+  
 # Sources
 * The library parts can be found in [jupiter-rs](jupiter-rs)
 * The example runtime **Jupiter IO** can be found in [jupiter-io](jupiter-io)

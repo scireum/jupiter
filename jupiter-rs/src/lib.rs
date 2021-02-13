@@ -53,12 +53,12 @@
 //! # Modules
 //! * **LRU-Cache**: An size constraint cache with an intelligent refresh strategy which can be used
 //!   to maintain low latency response times by employing a coordinated asynchronous cache update
-//!   pattern (see `LRU.XGET` or the module documentation of [crate::lru::cache].
+//!   pattern (see `LRU.XGET` or the module documentation of [crate::lru::cache]).
 //! * **InfoGraphDB**: Provides a fast and flexible static database for master data. Using the
 //!   **Repository** this can be used to load master data from e.g. an S3 Bucket or a git repository
-//!   into fast lookup tables. These permit to perform all kinds of lookups, reverse-lookups,
-//!   "search as you type" searches and automatic translation management (even for tables with
-//!   thousands of rows / structured documents). More infos: [crate::idb]
+//!   into fast lookup tables or code sets. These permit to perform all kinds of lookups,
+//!   reverse-lookups, "search as you type" searches and automatic translation management (even for
+//!   tables with thousands of rows / structured documents). More infos: [crate::idb]
 //! * **Repository**: The repository is used to fetch files from various sources and invoking
 //!   appropriate loaders so that the data can be used (e.g. as IDB table). See [crate::repository]
 //!

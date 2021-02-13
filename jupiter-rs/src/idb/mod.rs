@@ -12,6 +12,10 @@
 //! databases but IDB provides some **distinct features** for lookups, reverse lookup, searching
 //! or multi language handling.
 //!
+//! Next to these datasets / code lists (which are internally referred to as "tables") InfoGraphDB
+//! also supports "sets" of strings. These sets can be used to efficiently represents lists like
+//! "which codes are enabled for standard X" or "which table entries can be used in scenario Y".
+//!
 //! # Managing data
 //!
 //! The data stored in IDB is considered "static". Therefore it is loaded once from a source and
@@ -26,7 +30,15 @@
 //! that all systems (development, staging, production, customer instances ...) will be
 //! automatically update once a file is changed.
 //!
-//! Of course, there is also a programmatic API to create or drop tables form other sources.
+//! By default, sets are loaded via the **idb-yaml-sets** loader, which expects a YAML hash which
+//! maps one or more keys to lists of set entries like this:
+//! ```yaml
+//! my_set: [ "A", "B", "C" ]
+//! some.other.set: [ "foo", "bar" ]
+//! ```
+//!
+//! Of course, there is also a programmatic API to create or drop tables and sets form other
+//! sources.
 //!
 //! # Commands
 //!
@@ -62,6 +74,11 @@
 //! * **IDB.ISCAN**: `IDB.ISCAN table primary_lang fallback_lang num_skip max_results path1 path2 path3`
 //!   Again, behaves just like `IDB.SCAN` but provides i18n lookup for the given languages.
 //! * **IDB.SHOW_TABLES**: `IDB.SHOW_TABLES` reports all tables and their usage statistics.
+//! * **IDB.SHOW_SETS**: `IDB.SHOW_SETS` reports all sets and their usage statistics.
+//! * **IDB.CONTAINS**: `IDB.CONTAINS set key1 key2 key3` reports if the given keys are contained
+//!   in the given set. For each key a **1** (contained) or a **0** (not contained) will be reported.
+//! * **IDB.INDEX_OF**: `IDB.INDEX_OF set key1 key2 key3` reports the insertion index for each
+//!   of the given keys using one-based indices.
 //!    
 //! # Example
 //!
@@ -110,12 +127,14 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use crate::commands::ResultExt;
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult, Endpoint};
 use crate::fmt::format_size;
+use crate::idb::set::Set;
 use crate::idb::table::Table;
 use crate::ig::docs::{Element, Query};
 use crate::platform::Platform;
 use crate::request::Request;
 use crate::response::Response;
 
+pub mod set;
 pub mod table;
 pub mod trie;
 
@@ -127,6 +146,13 @@ pub enum DatabaseCommand {
 
     /// Drops (removes) the table with the given name.
     DropTable(String),
+
+    /// Creates (registers) the given set for the given source and name. If a set already exists with
+    /// the same name, it will be replaced.
+    CreateSet(String, String, Set),
+
+    /// Drops (removes) all sets of the given source.
+    DropSets(String),
 }
 
 /// Describes the public API of the database.
@@ -163,6 +189,9 @@ enum Commands {
     ISearch,
     Scan,
     IScan,
+    ShowSets,
+    Contains,
+    IndexOf,
 }
 
 /// Installs an actor which handles the commands as described above.
@@ -194,23 +223,35 @@ pub fn install(platform: Arc<Platform>) {
         commands.register_command("IDB.SEARCH", cmd_queue.clone(), Commands::Search as usize);
         commands.register_command("IDB.ISEARCH", cmd_queue.clone(), Commands::ISearch as usize);
         commands.register_command("IDB.SCAN", cmd_queue.clone(), Commands::Scan as usize);
-        commands.register_command("IDB.ISCAN", cmd_queue, Commands::IScan as usize);
+        commands.register_command("IDB.ISCAN", cmd_queue.clone(), Commands::IScan as usize);
+        commands.register_command(
+            "IDB.SHOW_SETS",
+            cmd_queue.clone(),
+            Commands::ShowSets as usize,
+        );
+        commands.register_command(
+            "IDB.CONTAINS",
+            cmd_queue.clone(),
+            Commands::Contains as usize,
+        );
+        commands.register_command("IDB.INDEX_OF", cmd_queue, Commands::IndexOf as usize);
     }
 }
 
 /// Handles both, incoming commands and administrative actions.
 fn actor(mut endpoint: Endpoint, mut admin_receiver: Receiver<DatabaseCommand>) {
     tokio::spawn(async move {
-        let mut database = HashMap::new();
+        let mut tables = HashMap::new();
+        let mut sets = HashMap::new();
 
         loop {
             tokio::select! {
                    call = endpoint.recv() => match call {
-                        Some(call) => handle_call(call, &database).await,
+                        Some(call) => handle_call(call, &tables, &sets).await,
                         None => return
                    },
                    cmd = admin_receiver.recv() => match cmd {
-                        Some(cmd) => handle_admin(cmd, &mut database),
+                        Some(cmd) => handle_admin(cmd, &mut tables, &mut sets),
                         None => return
                    }
             }
@@ -221,13 +262,18 @@ fn actor(mut endpoint: Endpoint, mut admin_receiver: Receiver<DatabaseCommand>) 
 /// Distinguishes table related commands from general ones, as the former can be executed
 /// in parallel where the later block the actor to guarantee a sequential execution and to
 /// also provide exclusive access on the data.
-async fn handle_call(mut call: Call, database: &HashMap<String, Arc<Table>>) {
+async fn handle_call(
+    mut call: Call,
+    tables: &HashMap<String, Arc<Table>>,
+    sets: &HashMap<String, (Arc<Set>, String)>,
+) {
     let command = Commands::from_usize(call.token);
 
-    if let Some(Commands::ShowTables) = command {
-        show_tables_command(&mut call, database).complete(call);
-    } else {
-        handle_table_call(call, database).await;
+    match command {
+        Some(Commands::ShowTables) => show_tables_command(&mut call, tables).complete(call),
+        Some(Commands::ShowSets) => show_sets_command(&mut call, sets).complete(call),
+        Some(Commands::Contains) | Some(Commands::IndexOf) => handle_set_call(call, sets).await,
+        _ => handle_table_call(call, tables).await,
     }
 }
 
@@ -268,6 +314,49 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
             call.response.number(table.num_queries() as i64)?;
             call.response.number(table.num_scan_queries() as i64)?;
             call.response.number(table.num_scans() as i64)?;
+        }
+    }
+    Ok(())
+}
+
+/// Creates a response for `IDB.SHOW_SETS`.
+fn show_sets_command(
+    call: &mut Call,
+    database: &HashMap<String, (Arc<Set>, String)>,
+) -> CommandResult {
+    if call.request.parameter_count() == 0 {
+        let mut result = String::new();
+
+        result += format!(
+            "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+            "Source", "Name", "Num Elements", "Memory", "Queries"
+        )
+        .as_str();
+        result += crate::response::SEPARATOR;
+
+        for (name, (set, source)) in database {
+            result += format!(
+                "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+                source,
+                name,
+                set.len(),
+                format_size(set.allocated_memory()),
+                set.num_queries()
+            )
+            .as_str();
+        }
+        result += crate::response::SEPARATOR;
+
+        call.response.bulk(result)?;
+    } else {
+        call.response.array(database.len() as i32)?;
+        for (name, (set, source)) in database {
+            call.response.array(5)?;
+            call.response.bulk(source)?;
+            call.response.bulk(name)?;
+            call.response.number(set.len() as i64)?;
+            call.response.number(set.allocated_memory() as i64)?;
+            call.response.number(set.num_queries() as i64)?;
         }
     }
     Ok(())
@@ -548,9 +637,80 @@ fn emit_translated(
     Ok(false)
 }
 
+/// For a set related call, we perform the lookup in the set dictionary while having
+/// exclusive access to the underlying hash map. We then pass the **Arc** reference into
+/// a separate thread so that multiple queries can be executed simultaneously.
+async fn handle_set_call(mut call: Call, database: &HashMap<String, (Arc<Set>, String)>) {
+    let set_name = if let Ok(name) = call.request.str_parameter(0) {
+        name
+    } else {
+        call.complete(Err(CommandError::ClientError(anyhow::anyhow!(
+            "Missing set name as first parameter!"
+        ))));
+        return;
+    };
+
+    let (set, _) = if let Some(set) = database.get(set_name) {
+        set.clone()
+    } else {
+        call.complete(Err(CommandError::ClientError(anyhow::anyhow!(
+            "Unknown set"
+        ))));
+        return;
+    };
+
+    tokio::spawn(async move {
+        let token = call.token;
+        match Commands::from_usize(token) {
+            Some(Commands::Contains) => set_contains_command(&mut call, set).complete(call),
+            Some(Commands::IndexOf) => set_index_of_command(&mut call, set).complete(call),
+            _ => call.complete(Err(CommandError::ServerError(anyhow::anyhow!(
+                "Unknown token received: {}!",
+                token
+            )))),
+        }
+    });
+}
+
+fn set_contains_command(call: &mut Call, set: Arc<Set>) -> CommandResult {
+    if call.request.parameter_count() == 2 {
+        call.response
+            .boolean(set.contains(call.request.str_parameter(1)?))?;
+    } else {
+        call.response
+            .array((call.request.parameter_count() - 1) as i32)?;
+        for index in 1..call.request.parameter_count() {
+            call.response
+                .boolean(set.contains(call.request.str_parameter(index)?))?;
+        }
+    }
+
+    Ok(())
+}
+
+fn set_index_of_command(call: &mut Call, set: Arc<Set>) -> CommandResult {
+    if call.request.parameter_count() == 2 {
+        call.response
+            .number(set.index_of(call.request.str_parameter(1)?) as i64)?;
+    } else {
+        call.response
+            .array((call.request.parameter_count() - 1) as i32)?;
+        for index in 1..call.request.parameter_count() {
+            call.response
+                .number(set.index_of(call.request.str_parameter(index)?) as i64)?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Handles administrative commands while having exclusive access to the data structures
 /// of the main actor.
-fn handle_admin(command: DatabaseCommand, database: &mut HashMap<String, Arc<Table>>) {
+fn handle_admin(
+    command: DatabaseCommand,
+    tables: &mut HashMap<String, Arc<Table>>,
+    sets: &mut HashMap<String, (Arc<Set>, String)>,
+) {
     match command {
         DatabaseCommand::CreateTable(name, table) => {
             log::info!(
@@ -559,11 +719,25 @@ fn handle_admin(command: DatabaseCommand, database: &mut HashMap<String, Arc<Tab
                 table.len(),
                 crate::fmt::format_size(table.allocated_memory())
             );
-            database.insert(name, Arc::new(table));
+            tables.insert(name, Arc::new(table));
         }
         DatabaseCommand::DropTable(name) => {
             log::info!("Dropping table: {}...", &name);
-            database.remove(&name);
+            tables.remove(&name);
+        }
+        DatabaseCommand::CreateSet(source, name, set) => {
+            log::info!(
+                "New or updated set: {} ({} elements, {}, Source: {})",
+                &name,
+                set.len(),
+                crate::fmt::format_size(set.allocated_memory()),
+                source
+            );
+            sets.insert(name, (Arc::new(set), source));
+        }
+        DatabaseCommand::DropSets(source) => {
+            log::info!("Dropping sets of: {}...", &source);
+            sets.retain(|_, v| v.1 != source);
         }
     };
 }
@@ -572,6 +746,7 @@ fn handle_admin(command: DatabaseCommand, database: &mut HashMap<String, Arc<Tab
 mod tests {
     use crate::builder::Builder;
     use crate::config::Config;
+    use crate::idb::set::Set;
     use crate::idb::table::{IndexType, Table};
     use crate::idb::{install, Database, DatabaseCommand};
     use crate::ig::docs::Doc;
@@ -584,7 +759,7 @@ mod tests {
     use yaml_rust::YamlLoader;
 
     #[test]
-    fn integration_test() {
+    fn integration_test_for_tables() {
         // We want exclusive access to both, the test-repo and the 1503 port on which we fire up
         // a test-server for our integration tests...
         log::info!("Acquiring shared resources...");
@@ -785,5 +960,93 @@ name: Test
 
         let rows = YamlLoader::load_from_str(input).unwrap();
         list_to_doc(rows.as_slice()).unwrap()
+    }
+
+    #[test]
+    fn integration_test_for_sets() {
+        // We want exclusive access to both, the test-repo and the 1503 port on which we fire up
+        // a test-server for our integration tests...
+        log::info!("Acquiring shared resources...");
+        let _guard = crate::testing::SHARED_TEST_RESOURCES.lock().unwrap();
+        log::info!("Successfully acquired shared resources.");
+
+        test_async(async {
+            let (platform, database) = setup_environment().await;
+
+            // Load an extremely elaborate example dataset...
+            let mut set = Set::default();
+            set.add("A".to_owned());
+            set.add("B".to_owned());
+            set.add("C".to_owned());
+
+            database
+                .perform(DatabaseCommand::CreateSet(
+                    "test".to_string(),
+                    "test_set".to_string(),
+                    set,
+                ))
+                .await
+                .unwrap();
+
+            // Ensure that the command is processed...
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.CONTAINS")
+                    .arg("test_set")
+                    .arg("A")
+                    .query::<i32>(con))
+                .await
+                .unwrap(),
+                1
+            );
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.CONTAINS")
+                    .arg("test_set")
+                    .arg("X")
+                    .query::<i32>(con))
+                .await
+                .unwrap(),
+                0
+            );
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.INDEX_OF")
+                    .arg("test_set")
+                    .arg("B")
+                    .query::<i32>(con))
+                .await
+                .unwrap(),
+                2
+            );
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.INDEX_OF")
+                    .arg("test_set")
+                    .arg("X")
+                    .query::<i32>(con))
+                .await
+                .unwrap(),
+                0
+            );
+
+            database
+                .perform(DatabaseCommand::DropSets("test".to_string()))
+                .await
+                .unwrap();
+            // Ensure that the command is processed...
+            tokio::time::sleep(Duration::from_secs(2)).await;
+
+            // Expect an error as the set is gone now...
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.CONTAINS")
+                    .arg("test_set")
+                    .arg("A")
+                    .query::<Vec<i32>>(con))
+                .await
+                .is_none(),
+                true
+            );
+
+            platform.terminate()
+        });
     }
 }

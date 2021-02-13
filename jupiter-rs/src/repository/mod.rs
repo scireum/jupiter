@@ -116,6 +116,7 @@ use crate::platform::Platform;
 use crate::repository::foreground::ForegroundCommands;
 use crate::repository::idb_csv_loader::IdbCsvLoader;
 use crate::repository::idb_json_loader::IdbJsonLoader;
+use crate::repository::idb_yaml_set_loader::IdbYamlSetLoader;
 use crate::repository::loader::{Loader, LoaderCommands};
 
 mod background;
@@ -123,6 +124,7 @@ mod foreground;
 pub mod idb_csv_loader;
 pub mod idb_json_loader;
 pub mod idb_yaml_loader;
+pub mod idb_yaml_set_loader;
 pub mod loader;
 
 /// Represents a file within the repository.
@@ -278,6 +280,11 @@ pub fn create(platform: &Arc<Platform>) -> Arc<Repository> {
     repo.register_loader(
         "idb-csv".to_owned(),
         Arc::new(IdbCsvLoader::new(platform.clone())),
+    );
+
+    repo.register_loader(
+        "idb-yaml-sets".to_owned(),
+        Arc::new(IdbYamlSetLoader::new(platform.clone())),
     );
 
     repo
