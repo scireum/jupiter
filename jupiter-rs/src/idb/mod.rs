@@ -452,12 +452,20 @@ fn execute_query(
         parameter_index,
         &mut iter,
         limit as usize,
-        primary_lang,
-        fallback_lang,
-        table.default_lang_query(),
+        I18nContext {
+            primary_lang,
+            fallback_lang,
+            default_lang: table.default_lang_query(),
+        },
     )?;
 
     Ok(())
+}
+
+struct I18nContext<'a> {
+    primary_lang: Option<Query>,
+    fallback_lang: Option<Query>,
+    default_lang: &'a Query,
 }
 
 /// Yields an appropriate result for `IDB.SCAN` or `IDB.ISCAN` (depending on the value of
@@ -465,7 +473,7 @@ fn execute_query(
 fn execute_scan(call: &mut Call, table: Arc<Table>, translate: bool) -> CommandResult {
     let mut parameter_index = 1;
     let (primary_lang, fallback_lang) = parse_langs(call, &table, translate, &mut parameter_index)?;
-    let skip_and_limit = if parameter_index == call.request.parameter_count() {
+    let (skip, limit) = if parameter_index == call.request.parameter_count() {
         // If there are no fields to extract, a user can also omit skip and max_results as we simply
         // output the count...
         (0, 0)
@@ -473,7 +481,7 @@ fn execute_scan(call: &mut Call, table: Arc<Table>, translate: bool) -> CommandR
         parse_limits(call, &mut parameter_index)?
     };
 
-    let mut iter = table.table_scan().skip(skip_and_limit.0 as usize);
+    let mut iter = table.table_scan().skip(skip as usize);
 
     emit_results(
         &call.request,
@@ -481,10 +489,12 @@ fn execute_scan(call: &mut Call, table: Arc<Table>, translate: bool) -> CommandR
         &table,
         parameter_index,
         &mut iter,
-        skip_and_limit.1 as usize,
-        primary_lang,
-        fallback_lang,
-        table.default_lang_query(),
+        limit as usize,
+        I18nContext {
+            primary_lang,
+            fallback_lang,
+            default_lang: table.default_lang_query(),
+        },
     )?;
 
     Ok(())
@@ -542,9 +552,7 @@ fn emit_results<'a, I>(
     parameter_index: usize,
     iter: &'a mut I,
     limit: usize,
-    primary_lang: Option<Query>,
-    fallback_lang: Option<Query>,
-    default_lang: &Query,
+    i18n: I18nContext,
 ) -> anyhow::Result<()>
 where
     I: Iterator<Item = Element<'a>>,
@@ -570,13 +578,7 @@ where
         for row in results {
             response.array(request.parameter_count() as i32 - parameter_index as i32)?;
             for query in &queries {
-                emit_element(
-                    query.execute(row),
-                    response,
-                    primary_lang.as_ref(),
-                    fallback_lang.as_ref(),
-                    Some(default_lang),
-                )?;
+                emit_element(query.execute(row), response, &i18n)?;
             }
         }
     }
@@ -587,9 +589,7 @@ where
 fn emit_element(
     element: Element,
     response: &mut Response,
-    primary_lang: Option<&Query>,
-    fallback_lang: Option<&Query>,
-    default_lang: Option<&Query>,
+    i18n: &I18nContext,
 ) -> anyhow::Result<()> {
     if let Some(string) = element.as_str() {
         response.bulk(string)?;
@@ -600,18 +600,18 @@ fn emit_element(
     } else if element.is_list() {
         response.array(element.len() as i32)?;
         for child in element.iter() {
-            emit_element(child, response, primary_lang, fallback_lang, default_lang)?;
+            emit_element(child, response, i18n)?;
         }
     } else if element.is_object() {
-        if !emit_translated(element, primary_lang, response)?
-            && !emit_translated(element, fallback_lang, response)?
-            && !emit_translated(element, default_lang, response)?
+        if !emit_translated(element, i18n.primary_lang.as_ref(), response, i18n)?
+            && !emit_translated(element, i18n.fallback_lang.as_ref(), response, i18n)?
+            && !emit_translated(element, Some(i18n.default_lang), response, i18n)?
         {
             response.array(element.len() as i32)?;
             for (key, child) in element.entries() {
                 response.array(2)?;
                 response.bulk(key)?;
-                emit_element(child, response, primary_lang, fallback_lang, default_lang)?;
+                emit_element(child, response, i18n)?;
             }
         }
     } else {
@@ -625,11 +625,12 @@ fn emit_translated(
     element: Element,
     lang: Option<&Query>,
     response: &mut Response,
+    i18n: &I18nContext,
 ) -> anyhow::Result<bool> {
     if let Some(lang) = lang {
         let translated = lang.execute(element);
         if !translated.is_empty() {
-            emit_element(translated, response, Some(lang), None, None)?;
+            emit_element(translated, response, i18n)?;
             return Ok(true);
         }
     }

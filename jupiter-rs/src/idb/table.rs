@@ -103,7 +103,7 @@ impl Table {
     pub fn new(mut doc: Doc, indices: Vec<IndexType>) -> anyhow::Result<Self> {
         let mut trie = Trie::new();
         let known_indices = Table::build_indices(&mut doc, indices, &mut trie)?;
-        let default_lang_query = doc.compile(DEFAULT_LANG).clone();
+        let default_lang_query = doc.compile(DEFAULT_LANG);
 
         Ok(Table {
             doc,

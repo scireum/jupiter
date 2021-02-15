@@ -49,14 +49,18 @@ impl Set {
     ///
     /// If the set already contains the given key, nothing will change.
     pub fn add(&mut self, key: String) {
-        if !self.data.contains_key(&key) {
-            self.data.insert(key, self.data.len() + 1);
-        }
+        let next_index = self.data.len() + 1;
+        self.data.entry(key).or_insert(next_index);
     }
 
     /// Determines the number of keys in the set.
     pub fn len(&self) -> usize {
         self.data.len()
+    }
+
+    /// Determines if this set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
     }
 
     /// Estimates the memory required to represent the set.

@@ -33,7 +33,7 @@ impl Loader for IdbYamlSetLoader {
         let rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
             .context("Cannot parse the given YAML data.")?;
         let source = loader_info.file_name().to_string();
-        let sets = self.load_sets(rows)?;
+        let sets = self.load_sets(rows);
         for (name, set) in sets {
             self.register_set(source.clone(), name, set).await?;
         }
@@ -59,7 +59,7 @@ impl Loader for IdbYamlSetLoader {
 }
 
 impl IdbYamlSetLoader {
-    fn load_sets(&self, rows: Vec<Yaml>) -> anyhow::Result<Vec<(String, Set)>> {
+    fn load_sets(&self, rows: Vec<Yaml>) -> Vec<(String, Set)> {
         let mut result = Vec::new();
         for row in rows {
             if let Yaml::Hash(mut map) = row {
@@ -71,7 +71,7 @@ impl IdbYamlSetLoader {
             }
         }
 
-        Ok(result)
+        result
     }
 
     fn transform(&self, entry: OccupiedEntry<Yaml, Yaml>) -> Option<(String, Set)> {
