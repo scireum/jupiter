@@ -47,6 +47,11 @@ pub enum BackgroundCommand {
 
     /// Executes the given loader after the given file has been deleted.
     ExecuteLoaderForDelete(LoaderInfo),
+
+    /// Instructs the background loop to simply send back a `BackgroundEvent::EpochCounter`.
+    /// Using this simple approach, one can easily check if the background system is idle or
+    /// currently performing some tasks.
+    EmitEpochCounter(i64),
 }
 
 /// Spawns an actor which listens on the returned inbound queue and will post updates into the given
@@ -149,6 +154,20 @@ pub fn actor(
                                 "Failed to execute unload for {}: {}",
                                 loader.file_name(),
                                 e
+                            ),
+                        }
+                    }
+                    BackgroundCommand::EmitEpochCounter(epoch) => {
+                        match change_notifier
+                            .send(BackgroundEvent::EpochCounter(epoch))
+                            .await
+                        {
+                            Ok(_) => {
+                                log::info!("Successfully updated background epoch to: {}", epoch)
+                            }
+                            Err(e) => log::error!(
+                                "Failed to propagate net epoch counter back to the frontend: {} - {}",
+                                epoch, e
                             ),
                         }
                     }

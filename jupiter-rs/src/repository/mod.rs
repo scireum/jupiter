@@ -63,6 +63,17 @@
 //!   more or less human readable output where as `REPO.LIST raw` will return an array with
 //!   provides a child array per file containing **filename**, **filesize**, **last modified**.
 //! * **REPO.DELETE**: `REPO.DELETE file` deletes the given file from the repository.
+//! * **REPO.INC_EPOCH**: `REPO.INC_EPOCH` immediately increments the epoch counter of the
+//!   foreground actor and schedules a background tasks to increment the background epoch. Calling
+//!   this after some repository tasks have been executed can be used to determine if all tasks have
+//!   been handled.
+//! * **REPO.EPOCHS**: `REPO.EPOCHS` reads the foreground and background epoch. Calling first
+//!   `REPO.INC_EPOCH`and then `REPO.EPOCHS` one can determine if the background actor is currently
+//!   working (downloading files or performing loader tasks) or if everything is handled. As
+//!   **INC_EPOCH** is handled via the background loop, the returned epochs will differ, as long
+//!   as the background actors is processing other tasks. Once the foreground epoch and the
+//!   background one are the same, one can assume that all repository tasks have been handled.
+//!   
 //!
 //! # Testing
 //!
@@ -159,9 +170,14 @@ pub enum FileEvent {
     FileDeleted(RepositoryFile),
 }
 
+/// Represents events which are sent back from the background worker to the frontend.
 pub enum BackgroundEvent {
+    /// Signals that a new list of repository files has been determined.
     FileListUpdated(Vec<RepositoryFile>),
+    /// Signals that a file has most probably changed.
     FileEvent(FileEvent),
+    /// Completes the roundtrip of a BackgroundCommand::EmitEpochCounter`
+    EpochCounter(i64),
 }
 
 impl Display for FileEvent {
@@ -333,8 +349,18 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
         );
         commands.register_command(
             "REPO.DELETE",
-            command_queue,
+            command_queue.clone(),
             ForegroundCommands::Delete as usize,
+        );
+        commands.register_command(
+            "REPO.EPOCHS",
+            command_queue.clone(),
+            ForegroundCommands::Epochs as usize,
+        );
+        commands.register_command(
+            "REPO.INC_EPOCH",
+            command_queue,
+            ForegroundCommands::IncEpoch as usize,
         );
         commands.register_command("REPO.LOADERS", loader_queue, LoaderCommands::List as usize);
     }
@@ -401,6 +427,28 @@ mod tests {
                                        },
             _ = tokio::time::sleep(Duration::from_secs(2)) => None
         }
+    }
+
+    #[test]
+    fn test_epochs() {
+        // We want exclusive access to both, the test-repo and the 1503 port on which we fire up
+        // a test-server for our integration tests...
+        log::info!("Acquiring shared resources...");
+        let _guard = crate::testing::SHARED_TEST_RESOURCES.lock().unwrap();
+        log::info!("Successfully acquired shared resources.");
+
+        test_async(async {
+            setup_env().await;
+            query_redis_async(|con| redis::cmd("REPO.INC_EPOCH").query::<i64>(con)).await;
+            tokio::time::sleep(Duration::from_millis(150)).await;
+            let (foreground_epoch, background_epoch) =
+                query_redis_async(|con| redis::cmd("REPO.EPOCHS").query::<(i64, i64)>(con))
+                    .await
+                    .unwrap();
+
+            assert_eq!(foreground_epoch, 2);
+            assert_eq!(background_epoch, 2);
+        });
     }
 
     #[test]

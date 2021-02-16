@@ -37,6 +37,15 @@ pub enum ForegroundCommands {
     /// Updates the given file with the given contents. This is also mainly useful for debugging
     /// or to update tiny files.
     Store,
+
+    /// Emits an BackgroundCommand::EmitEpochCounter and also immediately increments the foreground
+    /// epoch counter. This can be used to determine if the background actor is idle (as it will
+    /// immediately report back a BackgroundEvent::EpochCounter in this case so that the foreground
+    /// and background epoch are equal. As long as they differ, the background actor is busy.
+    IncEpoch,
+
+    /// Reports the currently known epoch for the foreground and background.
+    Epochs,
 }
 
 /// Installs the actor based on the given uplink to and from the background worker and returns an
@@ -53,6 +62,9 @@ pub fn actor(
         use crate::commands::ResultExt;
 
         let mut files = Vec::new();
+        let mut foreground_epoch = 1;
+        let mut background_epoch = 1;
+
         if let Err(error) = background_task_sender.send(BackgroundCommand::Scan).await {
             log::error!("Failed to start initial repository scan: {}", error);
         }
@@ -77,6 +89,12 @@ pub fn actor(
                         Some(ForegroundCommands::Store) => {
                             store_command(&mut call, &mut background_task_sender).await.complete(call);
                         }
+                        Some(ForegroundCommands::IncEpoch) => {
+                            inc_epoch_command(&mut call, &mut foreground_epoch, &mut background_task_sender).await.complete(call);
+                        }
+                        Some(ForegroundCommands::Epochs) => {
+                            epochs_command(&mut call, foreground_epoch, background_epoch).await.complete(call);
+                        }
                         None => ()
                     }
                 },
@@ -86,6 +104,7 @@ pub fn actor(
                             let _ = repository.broadcast_sender.send(file_event);
                         }
                         Some(BackgroundEvent::FileListUpdated(new_files)) => files = new_files,
+                        Some(BackgroundEvent::EpochCounter(epoch)) => background_epoch = epoch,
                         _ => {}
                     }
                 }
@@ -203,5 +222,33 @@ async fn store_command(
         .context("Failed to enqueue STORE into background queue.")?;
 
     call.response.ok()?;
+    Ok(())
+}
+
+async fn inc_epoch_command(
+    call: &mut Call,
+    foreground_epoch: &mut i64,
+    background_sender: &mut mpsc::Sender<BackgroundCommand>,
+) -> CommandResult {
+    *foreground_epoch += 1;
+
+    background_sender
+        .send(BackgroundCommand::EmitEpochCounter(*foreground_epoch))
+        .await
+        .context("Failed to enqueue EMIT EPOCH into background queue.")?;
+
+    call.response.ok()?;
+    Ok(())
+}
+
+async fn epochs_command(
+    call: &mut Call,
+    foreground_epoch: i64,
+    background_epoch: i64,
+) -> CommandResult {
+    call.response.array(2)?;
+    call.response.number(foreground_epoch)?;
+    call.response.number(background_epoch)?;
+
     Ok(())
 }

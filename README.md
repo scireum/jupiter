@@ -121,7 +121,15 @@ If all modules are enabled, the following commands are available.
   more or less human readable output where as `REPO.LIST raw` will return an array with
   provides a child array per file containing **filename**, **filesize**, **last modified**.
 * `REPO.DELETE file` deletes the given file from the repository.
-
+* `REPO.INC_EPOCH` immediately increments the epoch counter of the foreground actor and schedules
+  a background tasks to increment the background epoch. Calling this after some repository tasks have been
+  executed can be used to determine if all tasks have been handled.
+* `REPO.EPOCHS` reads the foreground and background epoch. Calling first
+  `REPO.INC_EPOCH`and then `REPO.EPOCHS` one can determine if the background actor is currently
+  working (downloading files or performing loader tasks) or if everything is handled. As
+  **INC_EPOCH** is handled via the background loop, the returned epochs will differ, as long
+  as the background actors is processing other tasks. Once the foreground epoch and the
+  background one are the same, one can assume that all repository tasks have been handled.
 ## LRU Cache
 * `LRU.PUT cache key value` will store the given value for the given key in the
   given cache.
