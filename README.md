@@ -151,7 +151,7 @@ If all modules are enabled, the following commands are available.
 * `LRU.REMOVE cache key` will remove the value associated with the given key.
    Note that the value will be immediately gone without respecting any TTL.
 * `LRU.FLUSH cache` will wipe all contents of the given cache.
-* `LRU.STATE` will provide an overview of all active cache. `LRU.STATE cache`
+* `LRU.STATS` will provide an overview of all active cache. `LRU.STATS cache`
   will provide detailed metrics about the given cache.
   
 ## InfoGraphDB
