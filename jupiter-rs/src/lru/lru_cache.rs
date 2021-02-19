@@ -1,11 +1,16 @@
+//! Provides a size constrained [LRUCache](LRUCache).
+//!
+//! This behaves just like a map but once a maximal number of entries or a data allocation limit
+//! is hit, old entries are dismissed.
+//!
+//! It also supports refreshing data in a lazy manner using [extended_get](LRUCache::extended_get).
 #[cfg(test)]
 use mock_instant::Instant;
 #[cfg(not(test))]
 use std::time::Instant;
 
-use std::time::Duration;
-
 use linked_hash_map::LinkedHashMap;
+use std::time::Duration;
 
 /// Returns the allocated memory in bytes.
 pub trait ByteSize {
@@ -52,6 +57,7 @@ impl ByteSize for String {
 ///                             Duration::from_secs(60 * 60),
 ///                             Duration::from_secs(2),
 ///         );
+///
 ///
 /// lru.put("Foo".to_owned(), "Bar".to_owned()).unwrap();
 /// assert_eq!(lru.get("Foo").unwrap(), &"Bar".to_owned());
