@@ -19,7 +19,7 @@
 //!         # and will not be delivered by LRU.GET. However, LRU.XGET will deliver this entry
 //!         # but mark it as stale. Supports common suffixes like: s, m, h, d
 //!         soft_ttl: 15m
-//!         # Specifies the hard time to live. After this persiod, neither LRU.GET nor LRU.XGET
+//!         # Specifies the hard time to live. After this period, neither LRU.GET nor LRU.XGET
 //!         # will deliver this entry.
 //!         hard_ttl: 1d
 //!         # Specifies the refresh interval for LRU.XGET. If this command delivers a stale entry
