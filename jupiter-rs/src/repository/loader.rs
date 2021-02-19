@@ -318,6 +318,10 @@ async fn loader_changed(
         .values_mut()
         .find(|info| file.path == info.loader_file)
     {
+        info.data_file = Repository::resolve(&data_file).await?;
+        info.config = config.clone();
+        info.namespace = namespace.clone();
+
         if info.needs_reload().await? {
             info.enabled = namespaces.contains(&namespace);
             if info.enabled {
