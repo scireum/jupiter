@@ -591,7 +591,7 @@ mod tests {
                 .unwrap();
             assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "$3\r\nbar\r\n");
 
-            // ...and ensure we see the key (without and with filtering...)
+            // ...and ensure we see the key without filtering...
             let result = dispatcher
                 .invoke(Request::example(vec!["LRU.KEYS", "test"]), None)
                 .await
@@ -600,6 +600,7 @@ mod tests {
                 std::str::from_utf8(&result[..]).unwrap(),
                 "*1\r\n$3\r\nfoo\r\n"
             );
+            // ...and with filtering...
             let result = dispatcher
                 .invoke(Request::example(vec!["LRU.KEYS", "test", "fo"]), None)
                 .await
@@ -608,6 +609,12 @@ mod tests {
                 std::str::from_utf8(&result[..]).unwrap(),
                 "*1\r\n$3\r\nfoo\r\n"
             );
+            // ..and ensure that an "invalid" filter won't match our key.
+            let result = dispatcher
+                .invoke(Request::example(vec!["LRU.KEYS", "test", "xx"]), None)
+                .await
+                .unwrap();
+            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "*0\r\n");
 
             // REMOVE the value...
             let result = dispatcher
