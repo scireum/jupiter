@@ -388,7 +388,6 @@ impl<V: ByteSize> LRUCache<V> {
     /// lru.put("Foo".to_owned(), "Bar".to_owned());
     ///
     /// // Its keys report proper data...
-    /// assert_eq!(lru.keys().len(), 1);
     /// assert_eq!(lru.keys().next().unwrap(), "Foo");
     /// ```
     pub fn keys(&self) -> impl Iterator<Item = &String> + '_ {
