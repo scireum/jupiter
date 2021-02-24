@@ -53,8 +53,11 @@
 //! * **LRU.REMOVE**: `LRU.REMOVE cache key` will remove the value associated with the given key.
 //!   Note that the value will be immediately gone without respecting any TTL.
 //! * **LRU.FLUSH**: `LRU.FLUSH cache` will wipe all contents of the given cache.
-//! * **LRU.STATE**: `LRU.STATE` will provide an overview of all active cache. `LRU.STATE cache`
+//! * **LRU.STATS**: `LRU.STATS` will provide an overview of all active caches. `LRU.STATS cache`
 //!   will provide detailed metrics about the given cache.
+//! * **LRU.KEYS**: `LRU.KEYS cache filter` can be used to retrieve all keys which contain the given
+//!   filter (in their key). Note that the filter can also be omitted. However, only the first
+//!   100 matches will be returned in either case.
 //!
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -80,6 +83,7 @@ enum Commands {
     Remove,
     Flush,
     Stats,
+    Keys,
 }
 
 /// We operate on caches which store plain Strings.
@@ -99,7 +103,8 @@ pub fn install(platform: Arc<Platform>) {
     commands.register_command("LRU.REMOVE", queue.clone(), Commands::Remove as usize);
     commands.register_command("LRU.XGET", queue.clone(), Commands::ExtendedGet as usize);
     commands.register_command("LRU.FLUSH", queue.clone(), Commands::Flush as usize);
-    commands.register_command("LRU.STATS", queue, Commands::Stats as usize);
+    commands.register_command("LRU.STATS", queue.clone(), Commands::Stats as usize);
+    commands.register_command("LRU.KEYS", queue, Commands::Keys as usize);
 }
 
 /// Spawns the actual actor which handles all commands or processes config changes.
@@ -125,6 +130,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                             Some(Commands::Remove) => remove_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Flush) => flush_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Stats) => stats_command(&mut call, &mut caches).complete(call),
+                            Some(Commands::Keys) => keys_command(&mut call, &mut caches).complete(call),
                             _ => ()
                         }
                     }
@@ -505,6 +511,28 @@ fn cache_stats_command(
     Ok(())
 }
 
+/// Handles LRU.KEYS.
+fn keys_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> CommandResult {
+    let cache = get_cache(call.request.str_parameter(0)?, caches)?;
+    let keys: Vec<&String> = if call.request.parameter_count() > 1 {
+        let filter = call.request.str_parameter(1)?;
+        cache
+            .keys()
+            .filter(|key| key.contains(filter))
+            .take(100)
+            .collect()
+    } else {
+        cache.keys().take(100).collect()
+    };
+
+    call.response.array(keys.len() as i32)?;
+    for key in keys {
+        call.response.bulk(key)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
@@ -562,6 +590,31 @@ mod tests {
                 .await
                 .unwrap();
             assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "$3\r\nbar\r\n");
+
+            // ...and ensure we see the key without filtering...
+            let result = dispatcher
+                .invoke(Request::example(vec!["LRU.KEYS", "test"]), None)
+                .await
+                .unwrap();
+            assert_eq!(
+                std::str::from_utf8(&result[..]).unwrap(),
+                "*1\r\n$3\r\nfoo\r\n"
+            );
+            // ...and with filtering...
+            let result = dispatcher
+                .invoke(Request::example(vec!["LRU.KEYS", "test", "fo"]), None)
+                .await
+                .unwrap();
+            assert_eq!(
+                std::str::from_utf8(&result[..]).unwrap(),
+                "*1\r\n$3\r\nfoo\r\n"
+            );
+            // ..and ensure that an "invalid" filter won't match our key.
+            let result = dispatcher
+                .invoke(Request::example(vec!["LRU.KEYS", "test", "xx"]), None)
+                .await
+                .unwrap();
+            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "*0\r\n");
 
             // REMOVE the value...
             let result = dispatcher

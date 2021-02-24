@@ -151,8 +151,10 @@ If all modules are enabled, the following commands are available.
 * `LRU.REMOVE cache key` will remove the value associated with the given key.
    Note that the value will be immediately gone without respecting any TTL.
 * `LRU.FLUSH cache` will wipe all contents of the given cache.
-* `LRU.STATS` will provide an overview of all active cache. `LRU.STATS cache`
-  will provide detailed metrics about the given cache.
+* `LRU.STATS` will provide an overview of all active caches. 
+  `LRU.STATS cache` will provide detailed metrics about the given cache.
+* `LRU.KEYS cache filter` can be used to retrieve all keys which contain the given filter (in their key).
+  Note that the filter can also be omitted. However, only the first 100 matches will be returned in either case.
   
 ## InfoGraphDB
 * `IDB.LOOKUP table search_path filter_value path1 path2 path3`
