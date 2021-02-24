@@ -367,6 +367,34 @@ impl<V: ByteSize> LRUCache<V> {
         }
     }
 
+    /// Returns all keys which are currently in the cache.
+    ///
+    /// # Examples
+    /// ```
+    /// # use jupiter::lru::LRUCache;
+    /// # use std::time::Duration;
+    ///
+    /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
+    /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
+    /// // Stale entries are refreshed at most every 2s.
+    /// let mut lru = LRUCache::new(128,
+    ///                             1024,
+    ///                             Duration::from_secs(60),
+    ///                             Duration::from_secs(60 * 60),
+    ///                             Duration::from_secs(2),
+    ///         );
+    ///
+    /// // After inserting a value...
+    /// lru.put("Foo".to_owned(), "Bar".to_owned());
+    ///
+    /// // Its keys report proper data...
+    /// assert_eq!(lru.keys().len(), 1);
+    /// assert_eq!(lru.keys().next().unwrap(), "Foo");
+    /// ```
+    pub fn keys(&self) -> impl Iterator<Item = &String> + '_ {
+        self.map.keys()
+    }
+
     /// Removes all entries in this cache.
     ///
     /// Note that this will also zero all metrics (reads, writes, cache hits).
