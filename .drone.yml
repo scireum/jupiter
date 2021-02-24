@@ -38,6 +38,8 @@ steps:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
       - export RUSTFLAGS="-Dwarnings"
+      - rustup component add rustfmt
+      - rustup component add clippy
       - cd jupiter-rs
       - cargo fmt -- --check
       - cargo clippy -- -D warnings
