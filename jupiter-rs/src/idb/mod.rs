@@ -46,7 +46,8 @@
 //!   Performs a lookup for the given filter value in the given search path (inner fields separated
 //!   by ".") within the given table. If a result is found, the values for path1..pathN are
 //!   extracted and returned. If no path is given, the number of matches is returned. If multiple
-//!   documents match, only the first one if returned.
+//!   documents match, only the first one if returned. Note that if a path matches an inner object
+//!   (which is especially true for "."), the result will be wrapped as JSON.
 //! * **IDB.ILOOKUP**: `IDB.ILOOKUP table primary_lang fallback_lang search_path filter_value path1`
 //!   Behaves just like `IDB.LOOKUP`. However, of one of the given extraction paths points to an
 //!   inner map, we expect this to be a map of translation where we first try to find the value for
@@ -112,7 +113,8 @@
 //! be usable if there is a default value and only one or a few languages differ.
 //!
 //! Also note that the whole element being matched can be requested when using "." as field path,
-//! e.g. `IDB.LOOKUP countries code D .`
+//! e.g. `IDB.LOOKUP countries code D .`. A this matches an inner object, this will return the whole
+//! element wrapped as JSON string.
 //!
 //! We could invoke `IDB.ISEARCH countries en de 0 5 * deutsch code name` to retrieve "D", "Germany"
 //! e.g. to provide autocomplete values for a country field.
@@ -607,12 +609,7 @@ fn emit_element(
             && !emit_translated(element, i18n.fallback_lang.as_ref(), response, i18n)?
             && !emit_translated(element, Some(i18n.default_lang), response, i18n)?
         {
-            response.array(element.len() as i32)?;
-            for (key, child) in element.entries() {
-                response.array(2)?;
-                response.bulk(key)?;
-                emit_element(child, response, i18n)?;
-            }
+            response.bulk(to_json(element, i18n).to_string())?
         }
     } else {
         response.empty_string()?;
@@ -636,6 +633,59 @@ fn emit_translated(
     }
 
     Ok(false)
+}
+
+fn to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Value {
+    if let Some(string) = element.as_str() {
+        serde_json::json!(string)
+    } else if let Some(int) = element.as_int() {
+        serde_json::json!(int)
+    } else if let Some(bool) = element.try_as_bool() {
+        serde_json::json!(bool)
+    } else if element.is_list() {
+        serde_json::json!(element
+            .iter()
+            .map(|child| to_json(child, i18n))
+            .collect::<serde_json::value::Value>())
+    } else if element.is_object() {
+        hash_to_json(element, i18n)
+    } else {
+        serde_json::value::Value::Null
+    }
+}
+
+fn hash_to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Value {
+    if let Some(json) = translate_json(element, i18n.primary_lang.as_ref(), i18n) {
+        return json;
+    }
+    if let Some(json) = translate_json(element, i18n.fallback_lang.as_ref(), i18n) {
+        return json;
+    }
+    if let Some(json) = translate_json(element, Some(i18n.default_lang), i18n) {
+        return json;
+    }
+
+    let mut hash = HashMap::new();
+    for (key, child) in element.entries() {
+        hash.insert(key, to_json(child, i18n));
+    }
+
+    serde_json::json!(hash)
+}
+
+fn translate_json(
+    element: Element,
+    lang: Option<&Query>,
+    i18n: &I18nContext,
+) -> Option<serde_json::value::Value> {
+    if let Some(ref lang) = lang {
+        let translated = lang.execute(element);
+        if !translated.is_empty() {
+            return Some(to_json(translated, i18n));
+        }
+    }
+
+    None
 }
 
 /// For a set related call, we perform the lookup in the set dictionary while having
@@ -824,21 +874,18 @@ mod tests {
             assert_eq!(result[0][0].0, "at");
             assert_eq!(result[0][0].1, "aut");
 
-            // Ensure that querying "." returns the whole element...
+            // Ensure that querying "." returns the whole element as JSON...
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.LOOKUP")
                     .arg("countries")
                     .arg("code")
                     .arg("X")
                     .arg(".")
-                    .query::<Vec<Vec<Vec<Vec<String>>>>>(con)
+                    .query::<Vec<Vec<String>>>(con)
             })
             .await
             .unwrap();
-            assert_eq!(result[0][0][0][0], "code");
-            assert_eq!(result[0][0][0][1], "X");
-            assert_eq!(result[0][0][1][0], "name");
-            assert_eq!(result[0][0][1][1], "Test");
+            assert_eq!(result[0][0], "{\"code\":\"X\",\"name\":\"Test\"}");
 
             // Ensure translations work...
             let result = query_redis_async(|con| {

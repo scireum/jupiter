@@ -161,7 +161,8 @@ If all modules are enabled, the following commands are available.
   Performs a lookup for the given filter value in the given search path (inner fields separated
   by ".") within the given table. If a result is found, the values for path1..pathN are
   extracted and returned. If no path is given, the number of matches is returned. If multiple
-  documents match, only the first one if returned.
+  documents match, only the first one if returned. Note that if a path matches an inner object
+  (which is especially true for "."), the result will be wrapped as JSON.
 * `IDB.ILOOKUP table primary_lang fallback_lang search_path filter_value path1`
   Behaves just like `IDB.LOOKUP`. However, of one of the given extraction paths points to an
   inner map, we expect this to be a map of translation where we first try to find the value for
