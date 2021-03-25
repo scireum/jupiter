@@ -83,7 +83,7 @@ pub fn actor(
                             }
                             Err(e) => {
                                 log::error!(
-                                    "Failed to fetch data for {} from {}: {}",
+                                    "Failed to fetch data for {} from {}: {:?}",
                                     path,
                                     url,
                                     e
@@ -99,7 +99,12 @@ pub fn actor(
                                 files = scan_repository(files, &mut change_notifier).await;
                             }
                             Err(e) => {
-                                log::error!("Failed to fetch data for {} from {}: {}", path, url, e)
+                                log::error!(
+                                    "Failed to fetch data for {} from {}: {:?}",
+                                    path,
+                                    url,
+                                    e
+                                )
                             }
                         }
                     }
@@ -110,7 +115,7 @@ pub fn actor(
                                 log::info!("Contents of {} successfully updated...", path);
                                 files = scan_repository(files, &mut change_notifier).await;
                             }
-                            Err(e) => log::error!("Failed to store data for: {} - {}", path, e),
+                            Err(e) => log::error!("Failed to store data for: {} - {:?}", path, e),
                         }
                     }
                     BackgroundCommand::Delete(path) => {
@@ -120,7 +125,7 @@ pub fn actor(
                                 log::info!("File {} successfully deleted...", path);
                                 files = scan_repository(files, &mut change_notifier).await;
                             }
-                            Err(e) => log::error!("Failed to delete {}: {}", path, e),
+                            Err(e) => log::error!("Failed to delete {}: {:?}", path, e),
                         }
                     }
                     BackgroundCommand::ExecuteLoaderForChange(loader) => {
@@ -134,7 +139,7 @@ pub fn actor(
                                 start.elapsed().as_millis()
                             ),
                             Err(e) => log::error!(
-                                "Failed to execute loader for {}: {}",
+                                "Failed to execute loader for {}: {:?}",
                                 loader.file_name(),
                                 e
                             ),

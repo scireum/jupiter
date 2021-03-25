@@ -251,19 +251,19 @@ pub fn actor(
                                     &mut background_task_sender,
                                     &repository,
                                 ).await {
-                                    log::error!("Failed to update loader {} - {}", file.name, e);
+                                    log::error!("Failed to update loader {} - {:?}", file.name, e);
                                 }
                             } else if let Err(e) = file_changed(&mut loaders, &file, &mut background_task_sender).await {
-                                log::error!("Failed to update data file {} - {}", file.name, e);
+                                log::error!("Failed to update data file {} - {:?}", file.name, e);
                             }
                         }
                         Ok(FileEvent::FileDeleted(file)) => {
                             if file.name.starts_with("/loaders/") {
                                 if let Err(e) = loader_removed(&mut loaders, &file, &mut background_task_sender).await {
-                                    log::error!("Failed to remove loader {} - {}", file.name, e);
+                                    log::error!("Failed to remove loader {} - {:?}", file.name, e);
                                 }
                             } else if let Err(e) = file_removed(&mut loaders, &file, &mut background_task_sender).await {
-                                log::error!("Failed to remove loader for deleted file {} - {}", file.name, e);
+                                log::error!("Failed to remove loader for deleted file {} - {:?}", file.name, e);
                             }
                         }
                         _ => {}
@@ -277,7 +277,7 @@ pub fn actor(
                 _ = config_changed_flag.recv() => {
                     namespaces = load_namespaces(&config);
                     if let Err(e) = enforce_namespaces(&mut loaders, &namespaces, &mut background_task_sender).await {
-                        log::error!("Failed to enforce namespaces: {}", e);
+                        log::error!("Failed to enforce namespaces: {:?}", e);
                     }
                }
             }
