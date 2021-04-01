@@ -32,6 +32,10 @@
 //! * [IdbCsvLoader](idb_csv_loader::IdbCsvLoader) is used to load a given **CSV** file into
 //!   an table. This loader can be referenced as **idb-csv**.
 //!
+//! Additionally a loader is defined to load [Infograph Sets](crate::idb::set::Set):
+//! * [IdbYamlSetLoader](idb_yaml_set_loader::IdbYamlSetLoader) is used to load a given **YAML**
+//!   file into the appropriate IDB sets. This loader can be referenced as **idb-yaml-sets**.
+//!
 //! Additional loaders can be registered via [register_loader](Repository::register_loader).
 //!
 //! # Architecture

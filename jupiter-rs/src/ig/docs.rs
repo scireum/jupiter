@@ -663,7 +663,7 @@ impl Debug for Element<'_> {
             Node::Object(_) => {
                 let mut helper = f.debug_map();
                 for (name, value) in self.entries() {
-                    helper.key(&name).value(&value);
+                    let _ = helper.key(&name).value(&value);
                 }
                 helper.finish()
             }

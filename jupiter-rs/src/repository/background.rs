@@ -65,7 +65,7 @@ pub fn actor(
     let (cmd_queue, mut cmds) = mpsc::channel(1024);
     let (mut change_notifier, changes) = mpsc::channel(1024);
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let mut files = Vec::new();
 
         while platform.is_running() {
@@ -490,12 +490,12 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     );
 
     let mut tmp_path = effective_path.clone();
-    tmp_path.set_extension(current_extension + ".part");
+    let _ = tmp_path.set_extension(current_extension + ".part");
     let mut file = File::create(&tmp_path)
         .await
         .context("Failed to open destination file.")?;
 
-    tokio::io::copy(&mut reader, &mut file)
+    let _ = tokio::io::copy(&mut reader, &mut file)
         .await
         .context("Failed to perform download.")?;
     file.flush().await.context("Failed to flush data to disk")?;

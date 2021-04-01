@@ -50,7 +50,7 @@ impl Set {
     /// If the set already contains the given key, nothing will change.
     pub fn add(&mut self, key: String) {
         let next_index = self.data.len() + 1;
-        self.data.entry(key).or_insert(next_index);
+        let _ = self.data.entry(key).or_insert(next_index);
     }
 
     /// Determines the number of keys in the set.

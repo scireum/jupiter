@@ -111,7 +111,7 @@ pub fn install(platform: Arc<Platform>) {
 fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     let (queue, mut endpoint) = queue();
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let config = platform.require::<Config>();
         let mut config_changed = config.notifier();
 
@@ -171,7 +171,7 @@ fn parse_config(
     for (name, config) in map.entries() {
         let current_cache = caches.remove(name);
         if let Some(cache) = create_or_update(name, current_cache, config) {
-            result.insert(name.to_owned(), cache);
+            let _ = result.insert(name.to_owned(), cache);
         }
     }
 

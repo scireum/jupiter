@@ -105,7 +105,7 @@ If all modules are enabled, the following commands are available.
 * `SYS.COMMANDS` lists all available commands.
 * `SYS.CONNECTIONS` lists all active client connections.
 * `SYS.KILL` terminates the connection to the client with the given ip.
-*  `SYS.MEM` reports the current memory usage.
+* `SYS.MEM` reports the current memory usage.
 
 ## Repository
 * `REPO.SCAN` re-scans the local repository contents on the local disk. This
@@ -130,6 +130,7 @@ If all modules are enabled, the following commands are available.
   **INC_EPOCH** is handled via the background loop, the returned epochs will differ, as long
   as the background actors is processing other tasks. Once the foreground epoch and the
   background one are the same, one can assume that all repository tasks have been handled.
+  
 ## LRU Cache
 * `LRU.PUT cache key value` will store the given value for the given key in the
   given cache.

@@ -13,7 +13,7 @@ use crate::platform::Platform;
 /// Note that this is automatically called by the [Builder](crate::builder::Builder) unless it is
 /// disabled.
 pub fn install(platform: Arc<Platform>) {
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let ctrl_c = tokio::signal::ctrl_c();
         let mut sig_hup = tokio::signal::unix::signal(SignalKind::hangup()).unwrap();
 

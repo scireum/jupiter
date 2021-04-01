@@ -1,3 +1,25 @@
+//! Imports CSV files into InfoGraph DB.
+//!
+//! This loader is capable of reading UTF-8 encoded CSV files using ";" as separator.
+//!
+//! The first line contains the headers or field names to use. All subsequent lines contain
+//! the data to import.
+//!
+//! ## Example data:
+//! ```csv
+//! name;value;unit
+//! test;10;PCE
+//! foo;5;MTR
+//! ```
+//! ## Example loader:
+//! ```yaml
+//! file: 'path/to/file.csv'
+//! loader: 'idb-csv'
+//! namespace: 'target namespace to import into'
+//! table: 'target-table-name'
+//! indices: ['fields', 'to', 'index']
+//! fulltextIndices: ['fields', 'to', 'search', 'in']
+//! ```
 use crate::ig::csv::csv_to_doc;
 use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
@@ -6,11 +28,13 @@ use csv::ReaderBuilder;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// Represents the global loader instance.
 pub struct IdbCsvLoader {
     platform: Arc<Platform>,
 }
 
 impl IdbCsvLoader {
+    /// Creates a new loader to be passed into [Repository::register_loader].
     pub fn new(platform: Arc<Platform>) -> Self {
         IdbCsvLoader { platform }
     }

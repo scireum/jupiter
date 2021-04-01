@@ -204,11 +204,11 @@ impl Builder {
         }
 
         if self.setup_server {
-            crate::server::Server::install(&platform);
+            let _ = crate::server::Server::install(&platform);
         }
 
         if self.setup_commands {
-            crate::commands::CommandDictionary::install(&platform);
+            let _ = crate::commands::CommandDictionary::install(&platform);
 
             if self.core_commands {
                 crate::core::install(platform.clone());

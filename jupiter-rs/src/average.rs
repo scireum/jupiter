@@ -91,7 +91,7 @@ impl Average {
     /// completely lock and wait free, as we only utilize atomic load and store operations. This
     /// guarantees correctness while ensuring maximal performance.
     pub fn add(&self, value: i32) {
-        self.count.fetch_add(1, Ordering::Relaxed);
+        let _ = self.count.fetch_add(1, Ordering::Relaxed);
 
         let (mut sum, mut count) = self.sum_and_count();
 

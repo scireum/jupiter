@@ -244,7 +244,7 @@ pub fn install(platform: Arc<Platform>) {
 
 /// Handles both, incoming commands and administrative actions.
 fn actor(mut endpoint: Endpoint, mut admin_receiver: Receiver<DatabaseCommand>) {
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let mut tables = HashMap::new();
         let mut sets = HashMap::new();
 
@@ -388,7 +388,7 @@ async fn handle_table_call(mut call: Call, database: &HashMap<String, Arc<Table>
         return;
     };
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let token = call.token;
         match Commands::from_usize(token) {
             Some(Commands::Lookup) => {
@@ -673,7 +673,7 @@ fn hash_to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Valu
 
     let mut hash = HashMap::new();
     for (key, child) in element.entries() {
-        hash.insert(key, to_json(child, i18n));
+        let _ = hash.insert(key, to_json(child, i18n));
     }
 
     serde_json::json!(hash)
@@ -716,7 +716,7 @@ async fn handle_set_call(mut call: Call, database: &HashMap<String, (Arc<Set>, S
         return;
     };
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let token = call.token;
         match Commands::from_usize(token) {
             Some(Commands::Contains) => set_contains_command(&mut call, set).complete(call),
@@ -776,11 +776,11 @@ fn handle_admin(
                 table.len(),
                 crate::fmt::format_size(table.allocated_memory())
             );
-            tables.insert(name, Arc::new(table));
+            let _ = tables.insert(name, Arc::new(table));
         }
         DatabaseCommand::DropTable(name) => {
             log::info!("Dropping table: {}...", &name);
-            tables.remove(&name);
+            let _ = tables.remove(&name);
         }
         DatabaseCommand::CreateSet(source, name, set) => {
             log::info!(
@@ -790,7 +790,7 @@ fn handle_admin(
                 crate::fmt::format_size(set.allocated_memory()),
                 source
             );
-            sets.insert(name, (Arc::new(set), source));
+            let _ = sets.insert(name, (Arc::new(set), source));
         }
         DatabaseCommand::DropSets(source) => {
             log::info!("Dropping sets of: {}...", &source);

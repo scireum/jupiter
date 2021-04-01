@@ -89,7 +89,7 @@ impl SymbolTable {
         } else {
             let new_symbol = (self.symbols.len() + 1) as i32;
 
-            self.table.insert(value.to_owned(), new_symbol);
+            let _ = self.table.insert(value.to_owned(), new_symbol);
             self.symbols.push(value.to_owned());
 
             Ok(new_symbol)

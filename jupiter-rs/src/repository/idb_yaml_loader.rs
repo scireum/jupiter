@@ -1,3 +1,22 @@
+//! Imports YAML files into InfoGraph DB.
+//!
+//! ## Example data:
+//! ```yaml
+//! name: test
+//! unit: PCE
+//! ---
+//! name: foo
+//! unit: MTR
+//! ```
+//! ## Example loader:
+//! ```yaml
+//! file: 'path/to/file.yml'
+//! loader: 'idb-yaml'
+//! namespace: 'target namespace to import into'
+//! table: 'target-table-name'
+//! indices: ['fields', 'to', 'index']
+//! fulltextIndices: ['fields', 'to', 'search', 'in']
+//! ```
 use crate::ig::yaml::list_to_doc;
 use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
@@ -5,11 +24,13 @@ use anyhow::Context;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// Represents the global loader instance.
 pub struct IdbYamlLoader {
     platform: Arc<Platform>,
 }
 
 impl IdbYamlLoader {
+    /// Creates a new loader to be passed into [Repository::register_loader].
     pub fn new(platform: Arc<Platform>) -> Self {
         IdbYamlLoader { platform }
     }

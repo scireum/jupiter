@@ -88,14 +88,17 @@ impl Connection {
         self.active.load(Ordering::Acquire)
     }
 
+    /// Terminates the connection.
     pub fn quit(&self) {
         self.active.store(false, Ordering::Release);
     }
 
+    /// Specifies the client name of this connection.
     pub fn set_name(&self, name: &str) {
         self.name.store(Arc::new(Some(name.to_owned())))
     }
 
+    /// Returns the client name of this connection.
     pub fn name(&self) -> Arc<Option<String>> {
         self.name.load().clone()
     }
@@ -182,7 +185,7 @@ impl Server {
             .iter()
             .position(|other| *other == connection)
         {
-            mut_connections.remove(index);
+            let _ = mut_connections.remove(index);
         }
     }
 
@@ -223,7 +226,7 @@ impl Server {
     /// This is most probably used by test scenarios where the tests itself run in the main thread.
     pub fn fork(server: &Arc<Server>) {
         let cloned_server = server.clone();
-        tokio::spawn(async move {
+        let _ = tokio::spawn(async move {
             cloned_server.event_loop().await;
         });
     }
@@ -335,7 +338,7 @@ impl Server {
     /// "thread" which mainly simply executes the **client_loop** for this connection.
     fn handle_new_connection(&self, stream: TcpStream) {
         let platform = self.platform.clone();
-        tokio::spawn(async move {
+        let _ = tokio::spawn(async move {
             // Mark the connection as nodelay, as we already optimize all writes as far as possible.
             let _ = stream.set_nodelay(true);
 

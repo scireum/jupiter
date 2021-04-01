@@ -516,7 +516,7 @@ where
                     }
                 }
             } else {
-                self.stack.pop();
+                let _ = self.stack.pop();
             }
         }
 

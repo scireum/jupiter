@@ -1,3 +1,18 @@
+//! Imports YAML files as sets into InfoGraphDB.
+//!
+//! The file is expected to contain a map (hash) which contains lists defining the sets.
+//!
+//! ## Example data:
+//! ```yaml
+//! set1: [A, B, C]
+//! set2: [X, Y]
+//! ```
+//! ## Example loader:
+//! ```yaml
+//! file: 'path/to/file.json'
+//! loader: 'idb-yaml-sets'
+//! namespace: 'target namespace to import into'
+//! ```
 use crate::idb::set::Set;
 use crate::idb::{Database, DatabaseCommand};
 use crate::platform::Platform;
@@ -8,11 +23,13 @@ use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use yaml_rust::Yaml;
 
+/// Represents the global loader instance.
 pub struct IdbYamlSetLoader {
     platform: Arc<Platform>,
 }
 
 impl IdbYamlSetLoader {
+    /// Creates a new loader to be passed into [Repository::register_loader].
     pub fn new(platform: Arc<Platform>) -> Self {
         IdbYamlSetLoader { platform }
     }

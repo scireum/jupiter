@@ -1,6 +1,7 @@
-//! Permits to load YAML data into a [Doc](crate::ig::docs::Doc).
+//! Permits to load CSV data into a [Doc](crate::ig::docs::Doc).
 //!
-//! Wraps the given YAML data and returns it as **Doc**.
+//! Wraps the given CSV data and returns it as **Doc**. The first line is used as header line
+//! which defined the field names. All subsequent lines are imported as entries.
 //!
 //! # Examples
 //!

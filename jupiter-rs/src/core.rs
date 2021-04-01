@@ -66,7 +66,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
 
     let (queue, mut endpoint) = queue();
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         let server = platform.require::<Server>();
         let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();

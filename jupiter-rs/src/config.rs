@@ -326,7 +326,7 @@ fn run_config_change_monitor(_platform: Arc<Platform>, _config: Arc<Config>) {
 
 #[cfg(not(test))]
 fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         while platform.is_running() {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             // This will contain the last modified date of the file on disk or be None if the

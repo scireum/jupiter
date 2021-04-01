@@ -58,7 +58,7 @@ pub fn actor(
 ) -> Queue {
     let (command_queue, mut commands_endpoint) = queue();
 
-    tokio::spawn(async move {
+    let _ = tokio::spawn(async move {
         use crate::commands::ResultExt;
 
         let mut files = Vec::new();

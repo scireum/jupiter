@@ -130,7 +130,7 @@ impl Platform {
         T: Any + Send + Sync,
     {
         let name = std::any::type_name::<T>().to_owned();
-        self.services.lock().unwrap().insert(name, service);
+        let _ = self.services.lock().unwrap().insert(name, service);
     }
 
     /// Tries to resolve a previously registered service.

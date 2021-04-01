@@ -162,9 +162,10 @@ impl<B: BufRead> PullReader<B> {
     /// ```
     pub fn new(input: B) -> Self {
         let mut reader = Reader::from_reader(input);
-        reader.trim_text(true);
-        reader.expand_empty_elements(true);
-        reader.check_end_names(true);
+        let _ = reader
+            .trim_text(true)
+            .expand_empty_elements(true)
+            .check_end_names(true);
 
         PullReader::from_reader(reader)
     }

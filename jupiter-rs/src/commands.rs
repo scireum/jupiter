@@ -457,7 +457,7 @@ impl CommandDictionary {
                         name);
         } else {
             log::debug!("Registering command {}...", name);
-            commands.insert(
+            let _ = commands.insert(
                 name,
                 Arc::new(Command {
                     name,
@@ -484,7 +484,7 @@ impl CommandDictionary {
         let commands = self.commands.lock().unwrap();
         let mut cloned_commands = HashMap::with_capacity(commands.len());
         for command in commands.values() {
-            cloned_commands.insert(command.name, (command.clone(), command.queue.clone()));
+            let _ = cloned_commands.insert(command.name, (command.clone(), command.queue.clone()));
         }
 
         Dispatcher {

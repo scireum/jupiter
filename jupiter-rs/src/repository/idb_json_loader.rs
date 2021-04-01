@@ -1,3 +1,21 @@
+//! Imports JSON files into InfoGraph DB.
+//!
+//! ## Example data:
+//! ```json
+//! [
+//!     {"name": "test", "unit": "PCE"},
+//!     {"name": "foo", "unit": "MTR"},
+//! ]
+//! ```
+//! ## Example loader:
+//! ```yaml
+//! file: 'path/to/file.json'
+//! loader: 'idb-json'
+//! namespace: 'target namespace to import into'
+//! table: 'target-table-name'
+//! indices: ['fields', 'to', 'index']
+//! fulltextIndices: ['fields', 'to', 'search', 'in']
+//! ```
 use crate::ig::json::list_to_doc;
 use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
@@ -6,11 +24,13 @@ use serde_json::Value;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
+/// Represents the global loader instance.
 pub struct IdbJsonLoader {
     platform: Arc<Platform>,
 }
 
 impl IdbJsonLoader {
+    /// Creates a new loader to be passed into [Repository::register_loader].
     pub fn new(platform: Arc<Platform>) -> Self {
         IdbJsonLoader { platform }
     }
