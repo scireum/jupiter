@@ -1,6 +1,0 @@
-file: "/core/sova.csv"
-namespace: "core"
-loader: "idb-csv"
-table: "sova"
-indices: ["code"]
-fulltextIndices: ["name"]
