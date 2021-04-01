@@ -53,7 +53,9 @@
 //!   inner map, we expect this to be a map of translation where we first try to find the value for
 //!   the primary language and if none is found for the fallback language. Note that, if both languages
 //!   fail to yield a value, we attempt to resolve a final fallback using **xx** as language
-//!   code.
+//!   code. If all these attempts fail, we output an empty string. Note that therefore it is not
+//!   possible to return an inner map when using ILOOKUP which is used for anything other than
+//!   translations. Note however, that extracting single values using a proper path still works.
 //! * **IDB.QUERY**: `IDB.QUERY table num_skip max_results search_path filter_value path1`
 //!   Behaves just like lookup, but doesn't just return the first result, but skips over the first
 //!  `num_skip` results and then outputs up to `max_result` rows. Not that this is again limited to
@@ -605,10 +607,14 @@ fn emit_element(
             emit_element(child, response, i18n)?;
         }
     } else if element.is_object() {
-        if !emit_translated(element, i18n.primary_lang.as_ref(), response, i18n)?
-            && !emit_translated(element, i18n.fallback_lang.as_ref(), response, i18n)?
-            && !emit_translated(element, Some(i18n.default_lang), response, i18n)?
-        {
+        if i18n.primary_lang.is_some() {
+            if !emit_translated(element, i18n.primary_lang.as_ref(), response, i18n)?
+                && !emit_translated(element, i18n.fallback_lang.as_ref(), response, i18n)?
+                && !emit_translated(element, Some(i18n.default_lang), response, i18n)?
+            {
+                response.empty_string()?;
+            }
+        } else {
             response.bulk(to_json(element, i18n).to_string())?
         }
     } else {
