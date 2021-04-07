@@ -56,7 +56,7 @@ impl Loader for IdbYamlLoader {
             .as_bool()
             .unwrap_or(false);
         let doc = list_to_doc(rows.as_slice(), |key| {
-            !skip_underscores | !key.starts_with("_")
+            !skip_underscores | !key.starts_with('_')
         })
         .context("Cannot transform YAML to doc")?;
 
