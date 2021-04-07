@@ -661,16 +661,6 @@ fn to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Value {
 }
 
 fn hash_to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Value {
-    if let Some(json) = translate_json(element, i18n.primary_lang.as_ref(), i18n) {
-        return json;
-    }
-    if let Some(json) = translate_json(element, i18n.fallback_lang.as_ref(), i18n) {
-        return json;
-    }
-    if let Some(json) = translate_json(element, Some(i18n.default_lang), i18n) {
-        return json;
-    }
-
     let mut hash = HashMap::new();
     for (key, child) in element.entries() {
         let _ = hash.insert(key, to_json(child, i18n));
@@ -815,6 +805,33 @@ mod tests {
     use tokio::time::Duration;
     use yaml_rust::YamlLoader;
 
+    fn create_example_dataset() -> Doc {
+        let input = r#"
+code: "D"
+iso:
+  two: "de"
+  three: "deu"
+name:
+  de: "Deutschland"
+  en: "Germany"
+---
+code: "A"
+iso:
+  two: "at"
+  three: "aut"
+name:
+  de: "Österreich"
+  en: "Austria"
+  xx: "Test"
+---
+code: "X"
+name: Test
+        "#;
+
+        let rows = YamlLoader::load_from_str(input).unwrap();
+        list_to_doc(rows.as_slice(), |_| true).unwrap()
+    }
+
     #[test]
     fn integration_test_for_tables() {
         // We want exclusive access to both, the test-repo and the 1503 port on which we fire up
@@ -893,7 +910,40 @@ mod tests {
             .unwrap();
             assert_eq!(result[0][0], "{\"code\":\"X\",\"name\":\"Test\"}");
 
-            // Ensure translations work...
+            // Ensure that querying an inner map returns the whole map as JSON (even in the
+            // presence of xx fallback codes)...
+            let result = query_redis_async(|con| {
+                redis::cmd("IDB.LOOKUP")
+                    .arg("countries")
+                    .arg("code")
+                    .arg("A")
+                    .arg("name")
+                    .query::<Vec<Vec<String>>>(con)
+            })
+            .await
+            .unwrap();
+            assert_eq!(
+                result[0][0],
+                "{\"de\":\"Österreich\",\"en\":\"Austria\",\"xx\":\"Test\"}"
+            );
+
+            // Ensure that querying an inner map without a proper translation returns
+            // an empty string (as no "xx" fallback code is present)..
+            let result = query_redis_async(|con| {
+                redis::cmd("IDB.ILOOKUP")
+                    .arg("countries")
+                    .arg("uu")
+                    .arg("uu")
+                    .arg("code")
+                    .arg("D")
+                    .arg("name")
+                    .query::<Vec<Vec<String>>>(con)
+            })
+            .await
+            .unwrap();
+            assert_eq!(result[0][0], "");
+
+            // Ensure direct translations work...
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.ILOOKUP")
                     .arg("countries")
@@ -987,33 +1037,6 @@ mod tests {
         Server::fork_and_await(&platform.require::<Server>()).await;
 
         (platform.clone(), platform.require::<Database>())
-    }
-
-    fn create_example_dataset() -> Doc {
-        let input = r#"
-code: "D"
-iso:
-  two: "de"
-  three: "deu"
-name:
-  de: "Deutschland"
-  en: "Germany"
----
-code: "A"
-iso:
-  two: "at"
-  three: "aut"
-name:
-  de: "Österreich"
-  en: "Austria"
-  xx: "Test"
----
-code: "X"
-name: Test
-        "#;
-
-        let rows = YamlLoader::load_from_str(input).unwrap();
-        list_to_doc(rows.as_slice()).unwrap()
     }
 
     #[test]
