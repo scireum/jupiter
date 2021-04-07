@@ -590,6 +590,6 @@ name:
         "#;
 
         let rows = YamlLoader::load_from_str(input).unwrap();
-        list_to_doc(rows.as_slice()).unwrap()
+        list_to_doc(rows.as_slice(), |_| true).unwrap()
     }
 }

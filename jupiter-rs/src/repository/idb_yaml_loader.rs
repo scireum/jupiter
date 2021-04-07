@@ -8,6 +8,7 @@
 //! name: foo
 //! unit: MTR
 //! ```
+//!
 //! ## Example loader:
 //! ```yaml
 //! file: 'path/to/file.yml'
@@ -16,6 +17,7 @@
 //! table: 'target-table-name'
 //! indices: ['fields', 'to', 'index']
 //! fulltextIndices: ['fields', 'to', 'search', 'in']
+//! skipUnderscores: false # Determines if keys starting with _ should be ignored.
 //! ```
 use crate::ig::yaml::list_to_doc;
 use crate::platform::Platform;
@@ -50,7 +52,13 @@ impl Loader for IdbYamlLoader {
             .context("Unable to read data file")?;
         let rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
             .context("Cannot parse the given YAML data.")?;
-        let doc = list_to_doc(rows.as_slice()).context("Cannot transform YAML to doc")?;
+        let skip_underscores = loader_info.get_config()["skipUnderscores"]
+            .as_bool()
+            .unwrap_or(false);
+        let doc = list_to_doc(rows.as_slice(), |key| {
+            !skip_underscores | !key.starts_with("_")
+        })
+        .context("Cannot transform YAML to doc")?;
 
         self.update_table(doc, loader_info).await
     }

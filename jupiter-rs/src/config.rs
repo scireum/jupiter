@@ -259,7 +259,7 @@ impl Config {
         };
 
         let doc = if let Some(Yaml::Hash(map)) = docs.get(0) {
-            hash_to_doc(map)?
+            hash_to_doc(map, |_| true)?
         } else {
             Doc::empty()
         };

@@ -609,7 +609,7 @@ impl Query {
     ///         "#;
     ///
     /// let rows = YamlLoader::load_from_str(input).unwrap();
-    /// let doc = list_to_doc(rows.as_slice()).unwrap();
+    /// let doc = list_to_doc(rows.as_slice(), |_| true).unwrap();
     ///
     ///
     /// let query = doc.compile("test.foo.label");

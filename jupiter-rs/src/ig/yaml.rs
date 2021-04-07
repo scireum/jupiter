@@ -20,7 +20,7 @@
 //! ";
 //!
 //! let yaml = &YamlLoader::load_from_str(input).unwrap()[0];
-//! let doc = hash_to_doc(yaml.as_hash().unwrap()).unwrap();
+//! let doc = hash_to_doc(yaml.as_hash().unwrap(), |_| true).unwrap();
 //!
 //! assert_eq!(
 //!     yaml["a_string"].as_str(),
@@ -50,6 +50,7 @@
 //! # use jupiter::ig::yaml::{hash_to_doc, list_to_doc};
 //! let input = "
 //! a_string: 'Test'
+//! _skipped: true
 //! ---
 //! a_string: 'Test1'
 //! ---
@@ -59,10 +60,12 @@
 //! ";
 //!
 //! let yaml = &YamlLoader::load_from_str(input).unwrap();
-//! let doc = list_to_doc(yaml).unwrap();
+//! let doc = list_to_doc(yaml, | key | !key.starts_with("_")).unwrap();
 //!
 //! assert_eq!(doc.root().len(), 4);
 //! assert_eq!(yaml[0]["a_string"].as_str(), doc.root().at(0).query("a_string").as_str());
+//! // Ensure that keys starting with _ are skipped (as we use !key.starts_with("_") as filter)...
+//! assert_eq!(false, doc.root().at(0).query("_skipped").as_bool());
 //! assert_eq!(yaml[1]["a_string"].as_str(), doc.root().at(1).query("a_string").as_str());
 //! assert_eq!(yaml[2]["a_string"].as_str(), doc.root().at(2).query("a_string").as_str());
 //! assert_eq!(yaml[3].as_i64(), doc.root().at(3).as_int());
@@ -76,7 +79,9 @@ use crate::ig::docs::Doc;
 
 /// Transforms a YAML hash (object) into a [Doc](crate::ig::docs::Doc).
 ///
-/// The generated **Doc** will have an object as its root node.
+/// The generated **Doc** will have an object as its root node. The filter lambda can be used
+/// to skip (ignore) certain keys (e.g. all starting with an underscore). If `true` is returned,
+/// the key is accepted, otherwise it is skipped.
 ///
 /// # Errors
 /// This will return an error if we're running out of symbols (if there are more than 2^31-1
@@ -99,21 +104,26 @@ use crate::ig::docs::Doc;
 /// ";
 ///
 /// let yaml = &YamlLoader::load_from_str(input).unwrap()[0];
-/// let doc = hash_to_doc(yaml.as_hash().unwrap()).unwrap();
+/// let doc = hash_to_doc(yaml.as_hash().unwrap(), |_| true).unwrap();
 ///
 /// assert_eq!(doc.root().query("a_string").as_str().unwrap(), "Test");
 /// ```
-pub fn hash_to_doc(hash: &LinkedHashMap<Yaml, Yaml>) -> anyhow::Result<Doc> {
+pub fn hash_to_doc<F>(hash: &LinkedHashMap<Yaml, Yaml>, key_filter: F) -> anyhow::Result<Doc>
+where
+    F: Fn(&str) -> bool,
+{
     let doc_builder = DocBuilder::new();
     let mut obj_builder = doc_builder.obj();
-    transform_hash(hash, &doc_builder, &mut obj_builder)?;
+    transform_hash(hash, &doc_builder, &mut obj_builder, &key_filter)?;
 
     Ok(doc_builder.build_object(obj_builder))
 }
 
 /// Transforms the given list of YAML objects into a [Doc](crate::ig::docs::Doc).
 ///
-/// The generated **Doc** will have a list as its root node.
+/// The generated **Doc** will have a list as its root node. The filter lambda can be used
+/// to skip (ignore) certain keys (e.g. all starting with an underscore). If `true` is returned,
+/// the key is accepted, otherwise it is skipped.
 ///
 /// # Errors
 /// This will return an error if we're running out of symbols (if there are more than 2^31-1
@@ -139,7 +149,7 @@ pub fn hash_to_doc(hash: &LinkedHashMap<Yaml, Yaml>) -> anyhow::Result<Doc> {
 /// ";
 ///
 /// let yaml = &YamlLoader::load_from_str(input).unwrap();
-/// let doc = list_to_doc(yaml).unwrap();
+/// let doc = list_to_doc(yaml, |_| true).unwrap();
 ///
 /// assert_eq!(doc.root().len(), 6);
 /// assert_eq!(doc.root().at(1).query("a_string").as_str().unwrap(), "Test1");
@@ -147,24 +157,31 @@ pub fn hash_to_doc(hash: &LinkedHashMap<Yaml, Yaml>) -> anyhow::Result<Doc> {
 /// assert_eq!(doc.root().at(4).as_str().unwrap(), "text");
 /// assert_eq!(doc.root().at(5).as_bool(), true);
 /// ```
-pub fn list_to_doc(list: &[Yaml]) -> anyhow::Result<Doc> {
+pub fn list_to_doc<F>(list: &[Yaml], key_filter: F) -> anyhow::Result<Doc>
+where
+    F: Fn(&str) -> bool,
+{
     let doc_builder = DocBuilder::new();
     let mut list_builder = doc_builder.list();
-    transform_list(list, &doc_builder, &mut list_builder)?;
+    transform_list(list, &doc_builder, &mut list_builder, &key_filter)?;
 
     Ok(doc_builder.build_list(list_builder))
 }
 
-fn transform_list(
+fn transform_list<F>(
     list: &[Yaml],
     doc_builder: &DocBuilder,
     builder: &mut ListBuilder,
-) -> anyhow::Result<()> {
+    key_filter: &F,
+) -> anyhow::Result<()>
+where
+    F: Fn(&str) -> bool,
+{
     for yaml in list.iter() {
         match yaml {
             Yaml::Hash(ref map) => {
                 let mut obj_builder = doc_builder.obj();
-                transform_hash(map, doc_builder, &mut obj_builder)?;
+                transform_hash(map, doc_builder, &mut obj_builder, key_filter)?;
                 builder.append_object(obj_builder);
             }
             Yaml::Boolean(value) => builder.append_bool(*value),
@@ -172,7 +189,7 @@ fn transform_list(
             Yaml::String(value) => builder.append_string(value),
             Yaml::Array(ref inner_list) => {
                 let mut list_builder = doc_builder.list();
-                transform_list(inner_list, doc_builder, &mut list_builder)?;
+                transform_list(inner_list, doc_builder, &mut list_builder, key_filter)?;
                 builder.append_list(list_builder);
             }
             Yaml::Real(value) => builder.append_string(value),
@@ -183,29 +200,35 @@ fn transform_list(
     Ok(())
 }
 
-fn transform_hash(
+fn transform_hash<F>(
     hash: &LinkedHashMap<Yaml, Yaml>,
     doc_builder: &DocBuilder,
     builder: &mut ObjectBuilder,
-) -> anyhow::Result<()> {
+    key_filter: &F,
+) -> anyhow::Result<()>
+where
+    F: Fn(&str) -> bool,
+{
     for (key, value) in hash {
         if let Some(key) = key.as_str() {
-            match value {
-                Yaml::Hash(map) => {
-                    let mut obj_builder = doc_builder.obj();
-                    transform_hash(map, doc_builder, &mut obj_builder)?;
-                    builder.put_object(key, obj_builder)?
+            if key_filter(key) {
+                match value {
+                    Yaml::Hash(map) => {
+                        let mut obj_builder = doc_builder.obj();
+                        transform_hash(map, doc_builder, &mut obj_builder, key_filter)?;
+                        builder.put_object(key, obj_builder)?
+                    }
+                    Yaml::Boolean(value) => builder.put_bool(key, *value)?,
+                    Yaml::Integer(value) => builder.put_int(key, *value)?,
+                    Yaml::String(value) => builder.put_string(key, value)?,
+                    Yaml::Array(inner_list) => {
+                        let mut list_builder = doc_builder.list();
+                        transform_list(inner_list, doc_builder, &mut list_builder, key_filter)?;
+                        builder.put_list(key, list_builder)?;
+                    }
+                    Yaml::Real(value) => builder.put_string(key, value)?,
+                    _ => (),
                 }
-                Yaml::Boolean(value) => builder.put_bool(key, *value)?,
-                Yaml::Integer(value) => builder.put_int(key, *value)?,
-                Yaml::String(value) => builder.put_string(key, value)?,
-                Yaml::Array(inner_list) => {
-                    let mut list_builder = doc_builder.list();
-                    transform_list(inner_list, doc_builder, &mut list_builder)?;
-                    builder.put_list(key, list_builder)?;
-                }
-                Yaml::Real(value) => builder.put_string(key, value)?,
-                _ => (),
             }
         }
     }
