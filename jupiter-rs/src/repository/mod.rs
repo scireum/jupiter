@@ -442,8 +442,8 @@ mod tests {
         log::info!("Successfully acquired shared resources.");
 
         test_async(async {
-            setup_env().await;
-            query_redis_async(|con| redis::cmd("REPO.INC_EPOCH").query::<i64>(con)).await;
+            let _ = setup_env().await;
+            let _ = query_redis_async(|con| redis::cmd("REPO.INC_EPOCH").query::<i64>(con)).await;
             tokio::time::sleep(Duration::from_millis(150)).await;
             let (foreground_epoch, background_epoch) =
                 query_redis_async(|con| redis::cmd("REPO.EPOCHS").query::<(i64, i64)>(con))
@@ -506,8 +506,10 @@ mod tests {
             assert_eq!(repo_contents[0][0].0, "/test.yml");
 
             // Programmatically delete the file...
-            query_redis_async(|con| redis::cmd("REPO.DELETE").arg("/test.yml").query::<()>(con))
-                .await;
+            let _ = query_redis_async(|con| {
+                redis::cmd("REPO.DELETE").arg("/test.yml").query::<()>(con)
+            })
+            .await;
 
             // Receive an update notification from the repository...
             if let Some(FileEvent::FileDeleted(file)) = await_update(&mut listener).await {
@@ -545,7 +547,7 @@ mod tests {
             crate::idb::install(platform.clone());
 
             // Programmatically store a file...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
                     .arg("/test.yml")
                     .arg("test: true")
@@ -561,7 +563,7 @@ mod tests {
             assert_eq!(repo_contents.len(), 0);
 
             // ...and a loader
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
                     .arg("/loaders/test.yml")
                     .arg(
@@ -610,7 +612,7 @@ mod tests {
             let last_load = &repo_contents[0][0].3;
 
             // Update the file, so that loaders are triggered again...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
                     .arg("/test.yml")
                     .arg("test: true")
@@ -629,7 +631,7 @@ mod tests {
             assert_ne!(&repo_contents[0][0].3, last_load);
 
             // Update the loader description which should also trigger an update...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
                     .arg("/loaders/test.yml")
                     .arg(
@@ -678,7 +680,7 @@ mod tests {
             assert_eq!(repo_contents[0][0].2, false);
 
             // Programmatically delete the loader...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.DELETE")
                     .arg("/loaders/test.yml")
                     .query::<()>(con)
@@ -709,12 +711,12 @@ mod tests {
     async fn mini_http_server(req: Request<Body>) -> Result<Response<Body>, Infallible> {
         let mut response = Response::new("test: true".into());
         if req.uri().path().contains("new") {
-            response.headers_mut().insert(
+            let _ = response.headers_mut().insert(
                 hyper::header::LAST_MODIFIED,
                 HeaderValue::from_str(Utc::now().to_rfc2822().as_str()).unwrap(),
             );
         } else {
-            response.headers_mut().insert(
+            let _ = response.headers_mut().insert(
                 hyper::header::LAST_MODIFIED,
                 HeaderValue::from_str(
                     Utc.ymd(2010, 10, 10)
@@ -738,7 +740,7 @@ mod tests {
         log::info!("Successfully acquired shared resources.");
 
         test_async(async {
-            tokio::spawn(async {
+            let _ = tokio::spawn(async {
                 let server_addr: SocketAddr = "127.0.0.1:7979"
                     .parse::<SocketAddr>()
                     .expect("Unable to parse socket address");
@@ -756,7 +758,7 @@ mod tests {
             let mut listener = repository.listener();
 
             // Fetch a file from our local server...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.FETCH")
                     .arg("/test.yml")
                     .arg("http://127.0.0.1:7979/file.yml")
@@ -772,7 +774,7 @@ mod tests {
             }
 
             // Fetching an unchanged file...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.FETCH")
                     .arg("/test.yml")
                     .arg("http://127.0.0.1:7979/file.yml")
@@ -786,7 +788,7 @@ mod tests {
             }
 
             // Fetch the changed file will then again transfer it...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.FETCH")
                     .arg("/test.yml")
                     .arg("http://127.0.0.1:7979/new_file.yml")
@@ -802,7 +804,7 @@ mod tests {
             }
 
             // Force fetching the same file will then again transfer it...
-            query_redis_async(|con| {
+            let _ = query_redis_async(|con| {
                 redis::cmd("REPO.FETCH_FORCED")
                     .arg("/test.yml")
                     .arg("http://127.0.0.1:7979/file.yml")

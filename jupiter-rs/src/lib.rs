@@ -159,7 +159,7 @@ mod testing {
             .build()
             .unwrap();
 
-        rt.block_on(future);
+        let _ = rt.block_on(future);
     }
 
     /// Executes a blocking Redis query in an async fashion.

@@ -216,6 +216,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn inline_strings_panic_if_too_long() {
-        InlineString::from("X".repeat(InlineString::MAX + 1).as_str());
+        let _ = InlineString::from("X".repeat(InlineString::MAX + 1).as_str());
     }
 }

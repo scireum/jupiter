@@ -372,7 +372,7 @@ mod tests {
             // Setup a task which notifies our oneshot channel once the config changes...
             let mut change_notifier = config.notifier();
             let (tx, rx) = tokio::sync::oneshot::channel();
-            tokio::spawn(async move {
+            let _ = tokio::spawn(async move {
                 match change_notifier.recv().await {
                     Ok(_) => tx.send(()).unwrap(),
                     _ => return,

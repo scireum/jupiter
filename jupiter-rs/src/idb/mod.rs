@@ -927,7 +927,7 @@ mod tests {
             assert_eq!(result[0][0].0, "Test");
             assert_eq!(result[0][0].1, "Österreich");
 
-            // Ensure seaches work....
+            // Ensure searches work....
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.SEARCH")
                     .arg("countries")

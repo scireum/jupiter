@@ -694,8 +694,8 @@ mod tests {
             );
 
             // PUT an value into the cache again...
-            platform.require::<CommandDictionary>().dispatcher();
-            dispatcher
+            let _ = platform.require::<CommandDictionary>().dispatcher();
+            let _ = dispatcher
                 .invoke(
                     Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
                     None,
