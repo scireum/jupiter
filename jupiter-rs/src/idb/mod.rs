@@ -669,21 +669,6 @@ fn hash_to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Valu
     serde_json::json!(hash)
 }
 
-fn translate_json(
-    element: Element,
-    lang: Option<&Query>,
-    i18n: &I18nContext,
-) -> Option<serde_json::value::Value> {
-    if let Some(ref lang) = lang {
-        let translated = lang.execute(element);
-        if !translated.is_empty() {
-            return Some(to_json(translated, i18n));
-        }
-    }
-
-    None
-}
-
 /// For a set related call, we perform the lookup in the set dictionary while having
 /// exclusive access to the underlying hash map. We then pass the **Arc** reference into
 /// a separate thread so that multiple queries can be executed simultaneously.
