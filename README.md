@@ -205,10 +205,10 @@ If all modules are enabled, the following commands are available.
 * The example runtime **Jupiter IO** can be found in [jupiter-io](jupiter-io)
 
 ## Links
-* Documentation: [jupiter](https://docs.rs/jupiter)
+* Documentation: [docs.rs](https://docs.rs/jupiter)
 * Docker: [Jupiter IO Image](https://hub.docker.com/repository/docker/scireum/jupiter-io)
 * Repository: [GitHub](https://github.com/scireum/jupiter)
-* Crate: [jupiter-rs](https://crates.io/crates/jupiter)
+* Crate: [crates.io](https://crates.io/crates/jupiter)
 
 ## Contributions
 

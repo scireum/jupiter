@@ -8,7 +8,7 @@
 //! Being an in-memory database framework we want to prevent restarts / downtimes as much as
 //! possible.
 //!
-//! Note that the **Config** struct ist kind of constant and can be obtained from the **Platform**
+//! Note that the **Config** struct is kind of constant and can be obtained from the **Platform**
 //! once and then kept around. However, when using **Config::current()** to obtain the current
 //! config handle, this should not be stored, as it will not be updated once a new config has
 //! been loaded.
