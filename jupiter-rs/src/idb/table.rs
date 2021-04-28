@@ -127,16 +127,21 @@ impl Table {
 
         for index_type in indices {
             let query = doc.compile(index_type.field_name());
-            let field_symbol = doc.symbols_mut().find_or_create(index_type.field_name())?;
+            let field_name = index_type.field_name();
+            let field_symbol = doc.symbols_mut().find_or_create(field_name)?;
             let _ = known_indices.insert(field_symbol);
 
-            for (row, element) in doc.root().iter().enumerate() {
+            let mut row = 0;
+            let max = doc.root().len();
+            while row < max {
+                let element = doc.root().at(row);
                 let mut dedup_set = fnv::FnvHashSet::default();
+                let mut additional_index_values = Vec::new();
 
-                // Fetch the raw value..
+                // Fetch the exact values..
                 for child in query.execute_all(element) {
                     // Extract all exact matches and insert them into the index...
-                    Table::search_values(child, |value| {
+                    Table::search_values(child, field_name, |field, value| {
                         if !dedup_set.contains(value) {
                             trie.insert_unique(
                                 value,
@@ -147,6 +152,15 @@ impl Table {
                                 },
                             );
                             let _ = dedup_set.insert(value.to_string());
+                        }
+
+                        // For inner maps, we also create a sub-index e.g. when indexing:
+                        // mappings:
+                        //      acme: test
+                        // For an index on mapping, we also record an exact match for mappings.acme
+                        // with the value test (along with an entry for "mappings").
+                        if field_name != field {
+                            additional_index_values.push((field.to_string(), value.to_string()));
                         }
                     });
 
@@ -159,7 +173,7 @@ impl Table {
                         // An example would be a list which contains the entries "hello world" and "hello".
                         // As the tokenized version of "hello world" would also emit "hello" (as loose
                         // term) we first want to collect it as exact term.
-                        Table::search_values(child, |value| {
+                        Table::search_values(child, "", |_, value| {
                             Table::tokenize(value, |token| {
                                 if !dedup_set.contains(token) {
                                     trie.insert_unique(
@@ -176,6 +190,25 @@ impl Table {
                         });
                     }
                 }
+
+                // Resolve and create "inner indices". This has to happen outside of the
+                // search_values closure as we need mutable access on symbols (and thus doc).
+                for (field, value) in additional_index_values {
+                    if let Ok(field_symbol) = doc.symbols_mut().find_or_create(field) {
+                        trie.insert_unique(
+                            value.as_str(),
+                            IndexEntry {
+                                field: field_symbol,
+                                row,
+                                exact: true,
+                            },
+                        );
+
+                        let _ = known_indices.insert(field_symbol);
+                    }
+                }
+
+                row += 1;
             }
         }
 
@@ -188,26 +221,27 @@ impl Table {
     /// or an object which contains values or an inner list. Note that we only support this single
     /// level (to catch translation maps) but do not index complete "subtrees" as this seems quite
     /// an overkill.
-    fn search_values<C>(element: Element, mut callback: C)
+    fn search_values<C>(element: Element, prefix: &str, mut callback: C)
     where
-        C: FnMut(&str),
+        C: FnMut(&str, &str),
     {
         if element.is_list() {
             for child in element.iter() {
-                callback(child.to_str().as_ref())
+                callback(prefix, child.to_str().as_ref())
             }
         } else if element.is_object() {
-            for (_, child) in element.entries() {
-                if child.is_list() {
-                    for child in element.iter() {
-                        callback(child.to_str().as_ref())
+            for (key, value) in element.entries() {
+                let field = format!("{}.{}", prefix, key);
+                if value.is_list() {
+                    for child in value.iter() {
+                        callback(field.as_str(), child.to_str().as_ref())
                     }
                 } else {
-                    callback(child.to_str().as_ref())
+                    callback(field.as_str(), value.to_str().as_ref())
                 }
             }
         } else {
-            callback(element.to_str().as_ref())
+            callback(prefix, element.to_str().as_ref())
         }
     }
 
@@ -500,7 +534,7 @@ impl<'a> TableIter<'a> {
         let mut matching = false;
         for field in fields.iter() {
             let field_value = field.execute(row);
-            Table::search_values(field_value, |search_val| {
+            Table::search_values(field_value, "", |_, search_val| {
                 if search_val == value {
                     matching = true
                 }
