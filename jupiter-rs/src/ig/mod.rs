@@ -30,7 +30,7 @@
 //!
 //! # Performance
 //! As stated above, `infograph` is built to serve queries against large in-memory data structures
-//! which are read frequently and changed seldomly.
+//! which are read frequently and changed seldom.
 //!
 //! To guarantee optimal performance and to also optimize memory consumption, three main techniques
 //! are applied:
@@ -52,7 +52,24 @@
 //! capacity. This provides quite a compact memory layout which is very fast due to its efficient
 //! usage of L1 cache. We also sort entries by their `Symbol` so that we can use a binary search
 //! when looking up an entry.
-
+//!
+//! # Data Layout
+//!
+//! Using **loaders** (defined in the [Repository](Repository)) one can control for which columns
+//! and index is created. These lookup indices drastically improve the performance of lookups
+//! and searches. We support exact indices (given as **indices**) and search indices (specified
+//! as **fulltextIndices**). The former only store full field values, where the latter also store
+//! tokens (e.g. "hello", "world", for "hello world").
+//!
+//! Note that if a n index is used for a list or a map, all its child values are also mapped. Note
+//! that also, we create a sub-index - e.g. when this is indexed:
+//! ```yaml
+//! mappings:
+//!     acme: "test"
+//! ```
+//!
+//! Using an index for "mappings", we'd index "text" and also create an index for mappings.acme with
+//! the same value.
 mod node;
 mod strings;
 

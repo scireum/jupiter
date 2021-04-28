@@ -11,8 +11,23 @@ used to sync files form an upstream S3 bucket which contains shared master data.
 Once files are updated, Jupiter will check if an appropriate **loader** is available to be invoked. This
 loader then determines how the data is to be processed if it is changed or deleted.
 
-All loaders must reside in the sub directory *loaders* and are configured using YAML files. Here are some
-examples for the built-in loaders provided by Jupiter:
+All loaders must reside in the sub directory *loaders* and are configured using YAML files. 
+
+Note that **indices** are used to speedup exact value lookup (like **IDB.LOOKUP**) and **fulltextIndices**
+speedup searches like **IDB.SEARCH**. Note that for both indices, values in child lists or child maps
+are also added to the index. For exact indices, if a child map is indexed, a sub-index for each entry is
+created.
+
+Therefore when indexing "mappings" for:
+```yaml 
+mappings:
+    acme: test
+```
+
+We'd create an exact index match for "mappings -> test", another one for "mappings.acme -> test" and
+inexact one for "mappings -> test".
+
+Here are some examples for the built-in loaders provided by Jupiter:
 
 ## Loading a CSV file into an InfoGraphDB table:
 

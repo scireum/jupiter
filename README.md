@@ -20,7 +20,7 @@ Next to providing a framework for custom services, Jupiter also provides some co
   thousands of rows / structured documents).
 * **Repository**: The repository is used to fetch files from various sources and invoking
   appropriate loaders so that the data can be used (e.g. as IDB table or set).
-  More infos in loaders etc: [repository](jupiter-rs/src/repository)
+  More infos on loaders: [repository](jupiter-rs/src/repository)
 
 More infos and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
 
