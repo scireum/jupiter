@@ -201,7 +201,7 @@ impl<T> Trie<T> {
             };
         }
 
-        node.values.as_ref().map(|values| values.deref())
+        node.values.as_deref()
     }
 
     /// Performs a partial lookup in the Trie.

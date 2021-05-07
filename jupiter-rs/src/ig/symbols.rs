@@ -55,7 +55,7 @@ impl SymbolTable {
     /// assert_eq!(table.resolve("Unknown").is_none(), true);
     /// ```
     pub fn resolve(&self, string: impl AsRef<str>) -> Option<Symbol> {
-        self.table.get(string.as_ref()).map(|symbol| *symbol)
+        self.table.get(string.as_ref()).copied()
     }
 
     /// Resolve the given `string` into a new or an existing `Symbol`.

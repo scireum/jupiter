@@ -72,7 +72,7 @@ impl Doc {
     /// Note that this is mainly an internal API as [DocBuilder](crate::ig::builder::DocBuilder)
     /// should be used to generate new docs.
     pub fn new(symbols: SymbolTable, root: Node) -> Self {
-        Doc { symbols, root }
+        Doc { root, symbols }
     }
 
     /// Returns the root node of this doc which is either a list or a map.
