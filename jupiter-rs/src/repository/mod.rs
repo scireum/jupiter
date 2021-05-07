@@ -569,6 +569,8 @@ mod tests {
             let repo_contents = fetch_loaders().await;
             assert_eq!(repo_contents.len(), 0);
 
+            // ------------------------------------------------------------------------------------
+
             // ...and a loader
             let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
@@ -591,8 +593,10 @@ mod tests {
 
             // The loader is present, but not active, as the namespace is missing...
             let repo_contents = fetch_loaders().await;
-            assert_eq!(repo_contents[0][0].0, "test.yml");
-            assert_eq!(repo_contents[0][0].2, false);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, false);
+
+            // ------------------------------------------------------------------------------------
 
             // Enable namespace...
             platform
@@ -613,10 +617,10 @@ mod tests {
 
             // And also ensure that the file has been picked up...
             let repo_contents = fetch_loaders().await;
-            assert_eq!(repo_contents[0][0].0, "test.yml");
-            assert_eq!(repo_contents[0][0].2, true);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, true);
 
-            let last_load = &repo_contents[0][0].3;
+            // ------------------------------------------------------------------------------------
 
             // Update the file, so that loaders are triggered again...
             let _ = query_redis_async(|con| {
@@ -632,10 +636,13 @@ mod tests {
 
             // And also ensure that the file has been picked up...
             let repo_contents = fetch_loaders().await;
-            assert_eq!(repo_contents[0][0].0, "test.yml");
-            assert_eq!(repo_contents[0][0].2, true);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, true);
             // Ensure that the "last_load" timestamp changed...
-            assert_ne!(&repo_contents[0][0].3, last_load);
+            assert_ne!(&repo_contents[0][0].4, last_load);
+
+            // ------------------------------------------------------------------------------------
+            last_load = &repo_contents[0][0].4;
 
             // Update the loader description which should also trigger an update...
             let _ = query_redis_async(|con| {
@@ -659,10 +666,12 @@ mod tests {
 
             // And also ensure that the file has been picked up...
             let repo_contents = fetch_loaders().await;
-            assert_eq!(repo_contents[0][0].0, "test.yml");
-            assert_eq!(repo_contents[0][0].2, true);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, true);
             // Ensure that the "last_load" timestamp changed...
-            assert_ne!(&repo_contents[0][0].3, last_load);
+            assert_ne!(&repo_contents[0][0].4, last_load);
+
+            // ------------------------------------------------------------------------------------
 
             // Disable namespace...
             platform
@@ -683,8 +692,10 @@ mod tests {
 
             // Now the loader should be disabled again...
             let repo_contents = fetch_loaders().await;
-            assert_eq!(repo_contents[0][0].0, "test.yml");
-            assert_eq!(repo_contents[0][0].2, false);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, false);
+
+            // ------------------------------------------------------------------------------------
 
             // Programmatically delete the loader...
             let _ = query_redis_async(|con| {
@@ -705,11 +716,11 @@ mod tests {
         });
     }
 
-    async fn fetch_loaders() -> Vec<Vec<(String, String, bool, String)>> {
+    async fn fetch_loaders() -> Vec<Vec<(String, String, String, bool, String, String)>> {
         query_redis_async(|con| {
             redis::cmd("REPO.LOADERS")
                 .arg("raw")
-                .query::<Vec<Vec<(String, String, bool, String)>>>(con)
+                .query::<Vec<Vec<(String, String, String, bool, String, String)>>>(con)
         })
         .await
         .unwrap()
