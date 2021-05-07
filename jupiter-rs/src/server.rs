@@ -63,6 +63,10 @@ const READ_WAIT_TIMEOUT: Duration = Duration::from_millis(500);
 /// command.
 const DEFAULT_BUFFER_SIZE: usize = 8192;
 
+/// Contains the payload used to fulfill the RESP protocol.
+///
+/// Most notably, this contains the name as reported by the client as well as a counter to
+/// measure the performance of each client (both used by SYS.CONNECTIONS).
 pub struct RESPPayload {
     commands: Average,
     name: ArcSwap<Option<String>>,
@@ -87,14 +91,17 @@ impl Default for RESPPayload {
 }
 
 impl RESPPayload {
+    /// Stores the name of the connected client.
     pub fn set_name(&self, name: &str) {
         self.name.store(Arc::new(Some(name.to_owned())));
     }
 
+    /// Retrieves the name of the connected client (if known).
     pub fn get_name(&self) -> Arc<Option<String>> {
         self.name.load().clone()
     }
 
+    /// Provides a an average recording the runtime of commands.
     pub fn commands(&self) -> &Average {
         &self.commands
     }
