@@ -14,7 +14,7 @@ codegen-units = 1
 [dependencies]
 jupiter = { path = "../jupiter-rs" }
 tokio = { version = "1.0.0", features = ["full"] }
-apollo-framework = "0.2.0"
+apollo-framework = "0.3.0"
 
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
