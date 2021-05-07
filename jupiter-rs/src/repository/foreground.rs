@@ -143,12 +143,12 @@ fn list_command(call: &mut Call, files: &[RepositoryFile]) -> CommandResult {
 
         result += "Use 'REPO.LIST raw' for to obtain the raw values.\n\n";
 
-        result += format!("{:<40} {:>12} {:>25}\n", "Name", "Size", "Last Modified").as_str();
+        result += format!("{:<50} {:>12} {:>25}\n", "Name", "Size", "Last Modified").as_str();
         result += crate::response::SEPARATOR;
 
         for file in files {
             result += format!(
-                "{:<40} {:>12} {:>25}\n",
+                "{:<50} {:>12} {:>25}\n",
                 &file.name,
                 format_size(file.size as usize),
                 DateTime::<Local>::from(file.last_modified)
