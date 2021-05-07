@@ -55,12 +55,7 @@ impl SymbolTable {
     /// assert_eq!(table.resolve("Unknown").is_none(), true);
     /// ```
     pub fn resolve(&self, string: impl AsRef<str>) -> Option<Symbol> {
-        let value = string.as_ref();
-        if let Some(symbol) = self.table.get(value) {
-            Some(*symbol)
-        } else {
-            None
-        }
+        self.table.get(string.as_ref()).map(|symbol| *symbol)
     }
 
     /// Resolve the given `string` into a new or an existing `Symbol`.

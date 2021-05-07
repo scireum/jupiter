@@ -201,11 +201,7 @@ impl<T> Trie<T> {
             };
         }
 
-        if let Some(values) = &node.values {
-            Some(values.deref())
-        } else {
-            None
-        }
+        node.values.as_ref().map(|values| values.deref())
     }
 
     /// Performs a partial lookup in the Trie.
