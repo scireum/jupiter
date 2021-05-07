@@ -78,6 +78,7 @@
 //! Further infos can be found on [crates.io/crates/jupiter](https://crates.io/crates/jupiter).
 //! As well as on GitHub: [github.com/scireum/jupiter](https://github.com/scireum/jupiter)
 #![deny(
+    warnings,
     missing_docs,
     trivial_casts,
     trivial_numeric_casts,
