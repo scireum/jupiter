@@ -622,6 +622,55 @@ mod tests {
 
             // ------------------------------------------------------------------------------------
 
+            // Register a second loader
+            let _ = query_redis_async(|con| {
+                redis::cmd("REPO.STORE")
+                    .arg("/loaders/test1.yml")
+                    .arg(
+                        r#"
+                       file: "/test.yml"
+                       namespace: "test"
+                       loader: "idb-yaml"
+                       table: "loader-test"
+                       indices: ["code"]
+                     "#,
+                    )
+                    .query::<()>(con)
+            })
+            .await;
+
+            // Ensure all internal messaging is handled...
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+
+            // Ensure that this has been picked up...
+            let repo_contents = fetch_loaders().await;
+            assert_eq!(repo_contents.len(), 2);
+            assert_eq!(repo_contents[1][0].0, "test1.yml");
+            assert_eq!(repo_contents[1][0].3, true);
+
+            // ------------------------------------------------------------------------------------
+
+            // Delete the second loader again...
+            let _ = query_redis_async(|con| {
+                redis::cmd("REPO.DELETE")
+                    .arg("/loaders/test1.yml")
+                    .query::<()>(con)
+            })
+            .await;
+
+            // Ensure all internal messaging is handled...
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+
+            // Ensure that the one loader is gone and that the other remains
+            let repo_contents = fetch_loaders().await;
+            assert_eq!(repo_contents.len(), 1);
+            assert_eq!(repo_contents[0][0].1, "test.yml");
+            assert_eq!(repo_contents[0][0].3, true);
+
+            // ------------------------------------------------------------------------------------
+
+            let mut last_load = &repo_contents[0][0].4;
+
             // Update the file, so that loaders are triggered again...
             let _ = query_redis_async(|con| {
                 redis::cmd("REPO.STORE")
