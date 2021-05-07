@@ -6,10 +6,10 @@
 ///
 /// Note that being a simple actor, each background task is executed after another. Once we believe
 /// that the repository has changed (e.g. after downloading a file), we notify the frontend again.
-use crate::platform::Platform;
 use crate::repository::loader::LoaderInfo;
 use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
 use anyhow::Context;
+use apollo_framework::platform::Platform;
 use chrono::DateTime;
 use futures::TryStreamExt;
 use hyper::{Body, Client, Request, Uri};

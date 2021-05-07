@@ -7,7 +7,9 @@
 //! Setting up the framework with all features enabled:
 //! ```no_run
 //! # use jupiter::builder::Builder;
-//! # use jupiter::server::Server;
+//! # use apollo_framework::server::Server;
+//! # use jupiter::server::RESPPayload;
+//! # use jupiter::server::resp_protocol_loop;
 //! #[tokio::main]
 //! async fn main() {
 //!     // Enable all features and build the platform...
@@ -16,13 +18,15 @@
 //!     // Register custom functions here...
 //!
 //!     // Start the main event loop of the server...
-//!     platform.require::<Server>().event_loop().await;
+//!     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop).await;
 //! }
 //! ```
 use std::sync::Arc;
 
-use crate::platform::Platform;
+use crate::server::RESPPayload;
 use crate::{init_logging, JUPITER_REVISION, JUPITER_VERSION};
+use apollo_framework::platform::Platform;
+use apollo_framework::server::Server;
 
 /// Initializes the framework by creating and initializing all core components.
 ///
@@ -33,7 +37,9 @@ use crate::{init_logging, JUPITER_REVISION, JUPITER_VERSION};
 /// Setting up the framework with all features enabled:
 /// ```no_run
 /// # use jupiter::builder::Builder;
-/// # use jupiter::server::Server;
+/// # use apollo_framework::server::Server;
+/// # use jupiter::server::RESPPayload;
+/// # use jupiter::server::resp_protocol_loop;
 /// #[tokio::main]
 /// async fn main() {
 ///     // Enable all features and build the platform...
@@ -42,7 +48,7 @@ use crate::{init_logging, JUPITER_REVISION, JUPITER_VERSION};
 ///     // Register custom functions here...
 ///     
 ///     // Start the main event loop of the server...
-///     platform.require::<Server>().event_loop().await;
+///     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop).await;
 /// }
 /// ```
 #[derive(Default)]
@@ -132,7 +138,7 @@ impl Builder {
         self
     }
 
-    /// Installs [config::Config](crate::config::Config) and loads the **settings.yml**.
+    /// Installs [config::Config](apollo_framework::config::Config) and loads the **settings.yml**.
     ///
     /// For more details see: [config](crate::config)
     pub fn enable_config(mut self) -> Self {
@@ -178,7 +184,7 @@ impl Builder {
         self
     }
 
-    /// Builds the [Platform](crate::platform::Platform) registry with all the enabled components
+    /// Builds the [Platform](apollo_framework::platform::Platform) registry with all the enabled components
     /// being registered.
     pub async fn build(self) -> Arc<Platform> {
         let platform = Platform::new();
@@ -194,17 +200,22 @@ impl Builder {
             num_cpus::get(),
             num_cpus::get_physical()
         );
+        log::info!(
+            "based on Apollo (v {} - rev {})",
+            apollo_framework::APOLLO_VERSION,
+            apollo_framework::APOLLO_REVISION
+        );
 
         if self.enable_signals {
-            crate::signals::install(platform.clone());
+            apollo_framework::signals::install(platform.clone());
         }
 
         if self.setup_config {
-            crate::config::install(platform.clone()).await;
+            let _ = apollo_framework::config::install(platform.clone(), true).await;
         }
 
         if self.setup_server {
-            let _ = crate::server::Server::install(&platform);
+            let _ = Server::<RESPPayload>::install(&platform);
         }
 
         if self.setup_commands {

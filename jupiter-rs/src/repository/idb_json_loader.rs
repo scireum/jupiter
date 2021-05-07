@@ -17,9 +17,9 @@
 //! fulltextIndices: ['fields', 'to', 'search', 'in']
 //! ```
 use crate::ig::json::list_to_doc;
-use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
 use anyhow::Context;
+use apollo_framework::platform::Platform;
 use serde_json::Value;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

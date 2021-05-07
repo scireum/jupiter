@@ -4,11 +4,11 @@
 /// `background actor`. If the background actor signals, that the repository contents have changed,
 /// the `loader actor`is notified.
 use crate::commands::{queue, Call, CommandResult, Queue};
-use crate::fmt::format_size;
-use crate::platform::Platform;
 use crate::repository::background::BackgroundCommand;
 use crate::repository::{BackgroundEvent, Repository, RepositoryFile};
 use anyhow::Context;
+use apollo_framework::fmt::format_size;
+use apollo_framework::platform::Platform;
 use chrono::{DateTime, Local};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;

@@ -88,21 +88,16 @@
 use simplelog::{ConfigBuilder, LevelFilter, SimpleLogger};
 use std::sync::Once;
 
-pub mod average;
 pub mod builder;
 pub mod commands;
-pub mod config;
 pub mod core;
-pub mod fmt;
 pub mod idb;
 pub mod ig;
 pub mod lru;
-pub mod platform;
 pub mod repository;
 pub mod request;
 pub mod response;
 pub mod server;
-pub mod signals;
 
 /// Contains the version of the Jupiter library.
 pub const JUPITER_VERSION: &str = "DEVELOPMENT-SNAPSHOT";

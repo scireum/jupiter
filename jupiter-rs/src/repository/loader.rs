@@ -6,14 +6,14 @@
 //! Note that common loaders which process **YAML**, **JSON** and **CSV** and put the loaded data
 //! into a **InfoGraphDB** table are provided by default.
 use crate::commands::{queue, Call, CommandResult, Queue};
-use crate::config::Config;
 use crate::idb::table::{IndexType, Table};
 use crate::idb::{Database, DatabaseCommand};
 use crate::ig::docs::Doc;
-use crate::platform::Platform;
 use crate::repository::background::BackgroundCommand;
 use crate::repository::{FileEvent, Repository, RepositoryFile};
 use anyhow::Context;
+use apollo_framework::config::Config;
+use apollo_framework::platform::Platform;
 use chrono::{DateTime, Local};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -289,13 +289,15 @@ pub fn actor(
 
 /// Fetches the list of enabled namespaces from the system config.
 fn load_namespaces(config: &Arc<Config>) -> Vec<String> {
-    config
-        .current()
-        .query("repository.namespaces")
-        .iter()
-        .map(|element| element.as_str().unwrap_or("").to_owned())
-        .filter(|ns| !ns.is_empty())
-        .collect()
+    if let Yaml::Array(ref namespaces) = config.current().config()["repository"]["namespaces"] {
+        namespaces
+            .iter()
+            .map(|element| element.as_str().unwrap_or("").to_owned())
+            .filter(|ns| !ns.is_empty())
+            .collect()
+    } else {
+        vec![]
+    }
 }
 
 /// Reacts on a change of a loader metadata file.

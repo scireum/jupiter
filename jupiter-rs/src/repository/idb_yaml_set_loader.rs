@@ -15,9 +15,9 @@
 //! ```
 use crate::idb::set::Set;
 use crate::idb::{Database, DatabaseCommand};
-use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
 use anyhow::Context;
+use apollo_framework::platform::Platform;
 use linked_hash_map::OccupiedEntry;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

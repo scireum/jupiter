@@ -130,13 +130,13 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use crate::commands::ResultExt;
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult, Endpoint};
-use crate::fmt::format_size;
 use crate::idb::set::Set;
 use crate::idb::table::Table;
 use crate::ig::docs::{Element, Query};
-use crate::platform::Platform;
 use crate::request::Request;
 use crate::response::Response;
+use apollo_framework::fmt::format_size;
+use apollo_framework::platform::Platform;
 
 pub mod set;
 pub mod table;
@@ -749,7 +749,7 @@ fn handle_admin(
                 "New or updated table: {} ({} rows, {})",
                 &name,
                 table.len(),
-                crate::fmt::format_size(table.allocated_memory())
+                apollo_framework::fmt::format_size(table.allocated_memory())
             );
             let _ = tables.insert(name, Arc::new(table));
         }
@@ -762,7 +762,7 @@ fn handle_admin(
                 "New or updated set: {} ({} elements, {}, Source: {})",
                 &name,
                 set.len(),
-                crate::fmt::format_size(set.allocated_memory()),
+                apollo_framework::fmt::format_size(set.allocated_memory()),
                 source
             );
             let _ = sets.insert(name, (Arc::new(set), source));
@@ -777,15 +777,16 @@ fn handle_admin(
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::config::Config;
     use crate::idb::set::Set;
     use crate::idb::table::{IndexType, Table};
     use crate::idb::{install, Database, DatabaseCommand};
     use crate::ig::docs::Doc;
     use crate::ig::yaml::list_to_doc;
-    use crate::platform::Platform;
-    use crate::server::Server;
+    use crate::server::{resp_protocol_loop, RESPPayload};
     use crate::testing::{query_redis_async, test_async};
+    use apollo_framework::config::Config;
+    use apollo_framework::platform::Platform;
+    use apollo_framework::server::Server;
     use std::sync::Arc;
     use tokio::time::Duration;
     use yaml_rust::YamlLoader;
@@ -1019,7 +1020,11 @@ name: Test
             .unwrap();
 
         // Fork the server in a separate thread..
-        Server::fork_and_await(&platform.require::<Server>()).await;
+        Server::fork_and_await(
+            &platform.require::<Server<RESPPayload>>(),
+            &resp_protocol_loop,
+        )
+        .await;
 
         (platform.clone(), platform.require::<Database>())
     }

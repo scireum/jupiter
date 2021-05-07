@@ -91,6 +91,7 @@ impl Display for Range {
 /// accordingly. Therefore "SET x y" will have "SET" as command, "x" as first parameter
 /// (index: 0) and "y" as second (index: 1).
 pub struct Request {
+    len: usize,
     data: Bytes,
     command: Range,
     arguments: Vec<Range>,
@@ -125,7 +126,7 @@ impl Request {
     /// assert_eq!(result.str_parameter(1).unwrap(), "y");
     /// assert_eq!(result.str_parameter(2).is_err(), true);
     /// ```
-    pub fn parse(data: &mut BytesMut) -> anyhow::Result<Option<Request>> {
+    pub fn parse(data: &BytesMut) -> anyhow::Result<Option<Request>> {
         let len = data.len();
 
         // Abort as early as possible if a partial request is present...
@@ -151,12 +152,12 @@ impl Request {
             input.push_str(&format!("${}\r\n{}\r\n", param.len(), param));
         }
 
-        Request::parse(&mut BytesMut::from(input.as_str()))
+        Request::parse(&BytesMut::from(input.as_str()))
             .unwrap()
             .unwrap()
     }
 
-    fn parse_inner(data: &mut BytesMut) -> anyhow::Result<Option<Request>> {
+    fn parse_inner(data: &BytesMut) -> anyhow::Result<Option<Request>> {
         // Check general validity of the request...
         let mut offset = 0;
         if data[0] != Request::ASTERISK {
@@ -192,7 +193,8 @@ impl Request {
         }
 
         Ok(Some(Request {
-            data: data.split().freeze(),
+            len: offset,
+            data: data.clone().freeze(),
             command,
             arguments,
         }))
@@ -317,6 +319,11 @@ impl Request {
                 index, string
             )
         })
+    }
+
+    /// Returns the total length on bytes for this request.
+    pub fn len(&self) -> usize {
+        self.len
     }
 }
 

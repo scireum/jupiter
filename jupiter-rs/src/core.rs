@@ -12,15 +12,16 @@
 //!
 //! [install](install) is invoked by the [Builder](crate::builder::Builder) unless disabled.
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult};
-use crate::fmt::{format_short_duration, format_size};
-use crate::platform::Platform;
-use crate::server::Server;
+use apollo_framework::fmt::{format_short_duration, format_size};
+use apollo_framework::platform::Platform;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::config::Config;
+use crate::server::RESPPayload;
 use anyhow::Context;
+use apollo_framework::config::Config;
+use apollo_framework::server::Server;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -67,7 +68,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     let (queue, mut endpoint) = queue();
 
     let _ = tokio::spawn(async move {
-        let server = platform.require::<Server>();
+        let server = platform.require::<Server<RESPPayload>>();
         let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();
 
@@ -97,7 +98,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     queue
 }
 
-fn connections_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
+fn connections_command(call: &mut Call, server: &Arc<Server<RESPPayload>>) -> CommandResult {
     let connections = server.connections();
     let mut result = String::new();
 
@@ -114,13 +115,14 @@ fn connections_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
             "{:<20} {:<30} {:>10} {:>15}\n",
             &connection.peer_address,
             connection
-                .name
+                .payload
+                .get_name()
                 .as_ref()
                 .as_ref()
                 .map(|name| Cow::Owned(name.clone()))
                 .unwrap_or(Cow::Borrowed("")),
-            connection.commands.count(),
-            format_short_duration(connection.commands.avg())
+            connection.payload.commands().count(),
+            format_short_duration(connection.payload.commands().avg())
         )
         .as_str();
     }
@@ -131,7 +133,7 @@ fn connections_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     Ok(())
 }
 
-fn kill_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
+fn kill_command(call: &mut Call, server: &Arc<Server<RESPPayload>>) -> CommandResult {
     if server.kill(call.request.str_parameter(0)?) {
         call.response.ok()?;
         Ok(())
@@ -212,9 +214,10 @@ fn panic_command(_call: &mut Call) -> CommandResult {
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::config::Config;
-    use crate::server::Server;
+    use crate::server::{resp_protocol_loop, RESPPayload};
     use crate::testing::{query_redis_async, test_async};
+    use apollo_framework::config::Config;
+    use apollo_framework::server::Server;
 
     #[test]
     fn integration_test() {
@@ -246,7 +249,11 @@ mod tests {
 
             // However, as we want to run some examples, we fork the server in an
             // separate thread..
-            Server::fork_and_await(&platform.require::<Server>()).await;
+            Server::fork_and_await(
+                &platform.require::<Server<RESPPayload>>(),
+                &resp_protocol_loop,
+            )
+            .await;
 
             // Invoke some diagnostics...
             assert_eq!(

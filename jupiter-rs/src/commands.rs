@@ -138,11 +138,12 @@ use std::time::Instant;
 use anyhow::anyhow;
 use bytes::BytesMut;
 
-use crate::average::Average;
-use crate::platform::Platform;
 use crate::request::Request;
 use crate::response::{OutputError, Response};
-use crate::server::Connection;
+use crate::server::RESPPayload;
+use apollo_framework::average::Average;
+use apollo_framework::platform::Platform;
+use apollo_framework::server::Connection;
 
 /// Represents an error when executing a command.
 ///
@@ -401,10 +402,10 @@ impl CommandDictionary {
     /// Creates a new and empty dictionary.
     ///
     /// Note that most probably a dictionary is already present and can be obtained from the
-    /// [Platform](crate::platform::Platform):
+    /// [Platform](apollo_framework::platform::Platform):
     ///
     /// ```
-    /// # use jupiter::platform::Platform;
+    /// # use apollo_framework::platform::Platform;
     /// # use jupiter::commands::CommandDictionary;
     /// # use jupiter::builder::Builder;
     /// # #[tokio::main]
@@ -516,7 +517,7 @@ impl Dispatcher {
     /// ```
     /// # use jupiter::builder::Builder;
     /// # use jupiter::request::Request;
-    /// # use jupiter::platform::Platform;
+    /// # use apollo_framework::platform::Platform;
     /// # use jupiter::commands::CommandDictionary;
     /// # use bytes::BytesMut;
     ///
@@ -552,7 +553,7 @@ impl Dispatcher {
     pub async fn invoke(
         &mut self,
         request: Request,
-        connection: Option<&Arc<Connection>>,
+        connection: Option<&Arc<Connection<RESPPayload>>>,
     ) -> Result<BytesMut, OutputError> {
         let response = Response::new();
         match self.commands.get_mut(request.command()) {
@@ -579,7 +580,7 @@ impl Dispatcher {
         &mut self,
         request: Request,
         mut response: Response,
-        connection: Option<&Arc<Connection>>,
+        connection: Option<&Arc<Connection<RESPPayload>>>,
     ) -> Result<BytesMut, OutputError> {
         match request.command().to_uppercase().as_str() {
             "QUIT" => {
@@ -591,7 +592,7 @@ impl Dispatcher {
             "CLIENT" => {
                 if request.str_parameter(0)?.to_uppercase() == "SETNAME" {
                     if let Some(connection) = connection {
-                        connection.set_name(request.str_parameter(1)?);
+                        connection.payload().set_name(request.str_parameter(1)?);
                     }
                 }
                 response.ok()?;

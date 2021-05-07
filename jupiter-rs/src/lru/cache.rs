@@ -65,14 +65,15 @@ use std::time::Duration;
 
 use crate::commands::{queue, Call, CommandResult};
 use crate::commands::{CommandDictionary, ResultExt};
-use crate::config::Config;
-use crate::fmt::{format_duration, format_size, parse_duration, parse_size};
-use crate::platform::Platform;
+use apollo_framework::config::Config;
+use apollo_framework::fmt::{format_duration, format_size, parse_duration, parse_size};
+use apollo_framework::platform::Platform;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::ig::docs::Element;
 use crate::lru::LRUCache;
+use yaml_rust::yaml::Hash;
+use yaml_rust::Yaml;
 
 /// Enumerates the commands supported by this actor.
 #[derive(FromPrimitive)]
@@ -152,8 +153,7 @@ fn update_config(
     config: &Arc<Config>,
 ) -> HashMap<String, StringCache> {
     let handle = config.current();
-    let map = handle.config().root().query("caches");
-    if map.is_object() {
+    if let Yaml::Hash(ref map) = handle.config()["caches"] {
         parse_config(caches, map)
     } else {
         log::info!("Config does not contain a 'caches' object. Skipping config update.");
@@ -165,10 +165,11 @@ fn update_config(
 /// present.
 fn parse_config(
     mut caches: HashMap<String, StringCache>,
-    map: Element,
+    map: &Hash,
 ) -> HashMap<String, StringCache> {
     let mut result = HashMap::new();
-    for (name, config) in map.entries() {
+    for (name, config) in map {
+        let name = name.as_str().unwrap_or("");
         let current_cache = caches.remove(name);
         if let Some(cache) = create_or_update(name, current_cache, config) {
             let _ = result.insert(name.to_owned(), cache);
@@ -190,9 +191,9 @@ fn parse_config(
 fn create_or_update(
     name: &str,
     current_cache: Option<StringCache>,
-    config: Element,
+    config: &Yaml,
 ) -> Option<StringCache> {
-    let size = match config.query("size").as_int().filter(|value| *value > 0) {
+    let size = match config["size"].as_i64().filter(|value| *value > 0) {
         None => {
             log::error!(
                 "Not going to create or update {} as no cache size was given.",
@@ -203,7 +204,7 @@ fn create_or_update(
         Some(n) => n,
     } as usize;
 
-    let max_memory = match parse_size(config.query("max_memory").to_str()) {
+    let max_memory = match parse_size(config["max_memory"].as_str().unwrap_or("")) {
         Err(error) => {
             log::error!(
                 "Not going to create or update {}. Failed to parse 'max_memory': {}",
@@ -215,7 +216,7 @@ fn create_or_update(
         Ok(n) => n,
     };
 
-    let soft_ttl = match parse_duration(config.query("soft_ttl").to_str()) {
+    let soft_ttl = match parse_duration(config["soft_ttl"].as_str().unwrap_or("")) {
         Ok(duration) => duration,
         Err(error) => {
             log::error!(
@@ -227,7 +228,7 @@ fn create_or_update(
         }
     };
 
-    let hard_ttl = match parse_duration(config.query("hard_ttl").to_str()) {
+    let hard_ttl = match parse_duration(config["hard_ttl"].as_str().unwrap_or("")) {
         Ok(duration) => duration,
         Err(error) => {
             log::error!(
@@ -239,7 +240,7 @@ fn create_or_update(
         }
     };
 
-    let refresh_interval = match parse_duration(config.query("refresh_interval").to_str()) {
+    let refresh_interval = match parse_duration(config["refresh_interval"].as_str().unwrap_or("")) {
         Ok(duration) => duration,
         Err(error) => {
             log::error!(
@@ -537,8 +538,8 @@ fn keys_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> C
 mod tests {
     use crate::builder::Builder;
     use crate::commands::CommandDictionary;
-    use crate::config::Config;
     use crate::request::Request;
+    use apollo_framework::config::Config;
     use mock_instant::MockClock;
     use std::time::Duration;
 

@@ -94,7 +94,8 @@
 //! # use jupiter::repository::idb_yaml_loader::IdbYamlLoader;
 //! # use std::sync::Arc;
 //! # use jupiter::repository::create;
-//! # use jupiter::server::Server;
+//! # use apollo_framework::server::Server;
+//! # use jupiter::server::{RESPPayload, resp_protocol_loop};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -112,7 +113,7 @@
 //!     jupiter::repository::install(platform.clone(), repository);
 //!
 //!     // Start the main event loop...
-//!     platform.require::<Server>().event_loop();
+//!     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop);
 //! }
 //! ```
 use std::collections::HashMap;
@@ -127,12 +128,12 @@ use tokio::sync::broadcast;
 use idb_yaml_loader::IdbYamlLoader;
 
 use crate::commands::CommandDictionary;
-use crate::platform::Platform;
 use crate::repository::foreground::ForegroundCommands;
 use crate::repository::idb_csv_loader::IdbCsvLoader;
 use crate::repository::idb_json_loader::IdbJsonLoader;
 use crate::repository::idb_yaml_set_loader::IdbYamlSetLoader;
 use crate::repository::loader::{Loader, LoaderCommands};
+use apollo_framework::platform::Platform;
 
 mod background;
 mod foreground;
@@ -373,11 +374,12 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::config::Config;
-    use crate::platform::Platform;
     use crate::repository::{FileEvent, FileEventReceiver, Repository};
-    use crate::server::Server;
+    use crate::server::{resp_protocol_loop, RESPPayload};
     use crate::testing::{query_redis_async, test_async};
+    use apollo_framework::config::Config;
+    use apollo_framework::platform::Platform;
+    use apollo_framework::server::Server;
     use chrono::{TimeZone, Utc};
     use hyper::header::HeaderValue;
     use hyper::service::{make_service_fn, service_fn};
@@ -397,7 +399,8 @@ mod tests {
         }
 
         //  Setup and create a platform...
-        let platform = Builder::new().enable_all().build().await;
+        let platform = Builder::new().enable_all().disable_config().build().await;
+        let _ = apollo_framework::config::install(platform.clone(), false).await;
         let repository = crate::repository::create(&platform);
         crate::repository::install(platform.clone(), repository.clone());
 
@@ -415,7 +418,11 @@ mod tests {
             .unwrap();
 
         // Fork the server in a separate thread..
-        Server::fork_and_await(&platform.require::<Server>()).await;
+        Server::fork_and_await(
+            &platform.require::<Server<RESPPayload>>(),
+            &resp_protocol_loop,
+        )
+        .await;
 
         (platform, repository)
     }
