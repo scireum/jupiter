@@ -1,3 +1,6 @@
+use crate::repository::loader::LoaderInfo;
+use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
+use anyhow::Context;
 /// Contains the background worker of the repository.
 ///
 /// As the repository has to execute some "long running" tasks like downloading data via HTTP
@@ -6,9 +9,6 @@
 ///
 /// Note that being a simple actor, each background task is executed after another. Once we believe
 /// that the repository has changed (e.g. after downloading a file), we notify the frontend again.
-use crate::repository::loader::LoaderInfo;
-use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
-use anyhow::Context;
 use apollo_framework::platform::Platform;
 use chrono::DateTime;
 use futures::TryStreamExt;
@@ -129,34 +129,49 @@ pub fn actor(
                         }
                     }
                     BackgroundCommand::ExecuteLoaderForChange(loader) => {
-                        log::info!("Executing loader for updated file: {}", loader.file_name());
+                        log::info!(
+                            "Executing loader {} for updated file: {}",
+                            loader.loader_file_name(),
+                            loader.file_name()
+                        );
                         let start = Instant::now();
 
                         match loader.get_loader().file_changed(&loader).await {
                             Ok(_) => log::info!(
-                                "Successfully loaded {} - Duration: {} ms",
+                                "Successfully loaded {} / {} - Duration: {} ms",
+                                loader.loader_file_name(),
                                 loader.file_name(),
                                 start.elapsed().as_millis()
                             ),
-                            Err(e) => log::error!(
-                                "Failed to execute loader for {}: {:?}",
-                                loader.file_name(),
-                                e
-                            ),
+                            Err(e) => {
+                                log::error!(
+                                    "Failed to execute loader for {} / {}: {:?}",
+                                    loader.loader_file_name(),
+                                    loader.file_name(),
+                                    e
+                                );
+                                loader.store_error(format!("{:?}", e));
+                            }
                         }
                     }
                     BackgroundCommand::ExecuteLoaderForDelete(loader) => {
-                        log::info!("Executing loader for deleted file: {}", loader.file_name());
+                        log::info!(
+                            "Executing loader {} for deleted file: {}",
+                            loader.loader_file_name(),
+                            loader.file_name()
+                        );
                         let start = Instant::now();
 
                         match loader.get_loader().file_deleted(&loader).await {
                             Ok(_) => log::info!(
-                                "Successfully unloaded {} - Duration: {} ms",
+                                "Successfully unloaded {} / {} - Duration: {} ms",
+                                loader.loader_file_name(),
                                 loader.file_name(),
                                 start.elapsed().as_millis()
                             ),
                             Err(e) => log::error!(
-                                "Failed to execute unload for {}: {}",
+                                "Failed to execute unload for {} / {}: {}",
+                                loader.loader_file_name(),
                                 loader.file_name(),
                                 e
                             ),
