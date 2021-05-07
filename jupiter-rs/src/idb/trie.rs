@@ -210,6 +210,44 @@ impl<T> Trie<T> {
         }
     }
 
+    /// Performs a partial lookup in the Trie.
+    ///
+    /// This is kind of the inverse of [Trie::prefix_query] as re iterate through the Trie as
+    /// long as we can. Once we cannot continue, we return the matched node and the length of
+    /// the query prefix we matched.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use jupiter::idb::trie::Trie;
+    /// let mut trie = Trie::new();
+    /// trie.insert("abc", 1);
+    ///
+    /// let (len, data) = trie.partial_query("abcd").unwrap();
+    /// assert_eq!(len, 3);
+    /// assert_eq!(data[0], 1);
+    /// ```
+    pub fn partial_query(&self, query: impl AsRef<str>) -> Option<(usize, &Vec<T>)> {
+        let mut node = &self.root;
+        let query = query.as_ref().as_bytes();
+        let mut intermediate_result = None;
+
+        for (index, &ch) in query.iter().enumerate() {
+            if let Some(values) = &node.values {
+                intermediate_result = Some((index, values.deref()));
+            }
+            node = match node.branches.iter().find(|branch| branch.0 == ch) {
+                Some((_, node)) => node,
+                None => return intermediate_result,
+            };
+        }
+
+        if let Some(values) = &node.values {
+            Some((query.len(), values.deref()))
+        } else {
+            intermediate_result
+        }
+    }
+
     /// Provides a boilerplate way of querying values.
     ///
     /// # Example
@@ -362,6 +400,57 @@ impl<T> Trie<T> {
     pub fn num_nodes(&self) -> usize {
         self.root.num_children()
     }
+
+    /// Performs a depth first walk and invokes the callback for each entry in the Trie.
+    ///
+    /// Note that this might be quite a long running task and there is no way of interrupting it
+    /// (as no iterator is used). Therefore this is should only be used for data management tasks
+    /// and not for lookups of any kind.
+    ///
+    /// Also note that this uses a stack based recursion. Therefore this must not be used if
+    /// keys in this Trie are unhealthy long.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use jupiter::idb::trie::Trie;
+    /// let mut trie = Trie::new();
+    ///
+    /// // A node per character is created...
+    /// trie.insert("abc", 1);
+    /// trie.insert("abcd", 2);
+    ///
+    /// let mut counter = 0;
+    /// trie.scan(&mut |_,_| counter += 1);
+    /// assert_eq!(counter, 2);
+    /// ```
+    pub fn scan<C>(&self, callback: &mut C)
+    where
+        C: FnMut(&str, &T),
+    {
+        let mut prefix = Vec::new();
+        Trie::scan_node(&mut prefix, &self.root, callback);
+    }
+
+    fn scan_node<C>(prefix: &mut Vec<u8>, node: &TrieNode<T>, callback: &mut C)
+    where
+        C: FnMut(&str, &T),
+    {
+        if let Some(values) = &node.values {
+            if let Ok(prefix_str) = std::str::from_utf8(prefix.as_slice()) {
+                for value in values.iter() {
+                    callback(prefix_str, value);
+                }
+            }
+        }
+
+        for (ch, child) in &node.branches {
+            prefix.push(*ch);
+
+            Trie::scan_node(prefix, &child, callback);
+            let _ = prefix.pop();
+        }
+    }
 }
 
 impl<T: PartialEq> Trie<T> {
@@ -464,7 +553,7 @@ impl<'a, T> Iterator for PrefixIter<'a, T> {
 
         // We either found a node and setup current_iter properly OR the stack is completely
         // empty. Both cases are handled gracefully by the code above, therefore we simply
-        // invoke next again (yes we could als whack a loop around all this, but this would
+        // invoke next again (yes we could also whack a loop around all this, but this would
         // let the code look more complex so we rely on the compiler to figure this out
         // all by itself, tail call optimizations aren't that hard anyway...).
         self.next()
@@ -592,7 +681,7 @@ mod tests {
         trie.insert("122", 8);
         trie.insert("123", 9);
 
-        // Note this is a poor mans way of checking if the current state matches
+        // Note this is a poor man's way of checking if the current state matches
         // the key of the branch to check.
         //
         // Therefore we only follow branches with the current state and then set the
@@ -604,5 +693,19 @@ mod tests {
         // ...therefore we expect to visit "1" (with value 1), "12" (with value 5) and
         // "123" (with value 9):
         assert_eq!(results, vec![&1, &5, &9]);
+    }
+
+    #[test]
+    fn scan_works() {
+        let mut trie = Trie::new();
+        trie.insert("A", 1);
+        trie.insert("B", 2);
+        trie.insert("AB", 4);
+        trie.insert("ABC", 9);
+
+        let mut buffer = String::new();
+        trie.scan(&mut |prefix, item| buffer.push_str(format!("{}{}", prefix, item).as_str()));
+
+        assert_eq!(buffer, "A1AB4ABC9B2");
     }
 }
