@@ -95,7 +95,7 @@
 //! # use std::sync::Arc;
 //! # use jupiter::repository::create;
 //! # use apollo_framework::server::Server;
-//! # use jupiter::server::{RESPPayload, resp_protocol_loop};
+//! # use jupiter::server::{RespPayload, resp_protocol_loop};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -113,7 +113,7 @@
 //!     jupiter::repository::install(platform.clone(), repository);
 //!
 //!     // Start the main event loop...
-//!     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop);
+//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop);
 //! }
 //! ```
 use std::collections::HashMap;
@@ -375,7 +375,7 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
 mod tests {
     use crate::builder::Builder;
     use crate::repository::{FileEvent, FileEventReceiver, Repository};
-    use crate::server::{resp_protocol_loop, RESPPayload};
+    use crate::server::{resp_protocol_loop, RespPayload};
     use crate::testing::{query_redis_async, test_async};
     use apollo_framework::config::Config;
     use apollo_framework::platform::Platform;
@@ -419,7 +419,7 @@ mod tests {
 
         // Fork the server in a separate thread..
         Server::fork_and_await(
-            &platform.require::<Server<RESPPayload>>(),
+            &platform.require::<Server<RespPayload>>(),
             &resp_protocol_loop,
         )
         .await;

@@ -18,7 +18,7 @@ use apollo_framework::platform::Platform;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::server::RESPPayload;
+use crate::server::RespPayload;
 use anyhow::Context;
 use apollo_framework::config::Config;
 use apollo_framework::server::Server;
@@ -68,7 +68,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     let (queue, mut endpoint) = queue();
 
     let _ = tokio::spawn(async move {
-        let server = platform.require::<Server<RESPPayload>>();
+        let server = platform.require::<Server<RespPayload>>();
         let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();
 
@@ -98,7 +98,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     queue
 }
 
-fn connections_command(call: &mut Call, server: &Arc<Server<RESPPayload>>) -> CommandResult {
+fn connections_command(call: &mut Call, server: &Arc<Server<RespPayload>>) -> CommandResult {
     let connections = server.connections();
     let mut result = String::new();
 
@@ -133,7 +133,7 @@ fn connections_command(call: &mut Call, server: &Arc<Server<RESPPayload>>) -> Co
     Ok(())
 }
 
-fn kill_command(call: &mut Call, server: &Arc<Server<RESPPayload>>) -> CommandResult {
+fn kill_command(call: &mut Call, server: &Arc<Server<RespPayload>>) -> CommandResult {
     if server.kill(call.request.str_parameter(0)?) {
         call.response.ok()?;
         Ok(())
@@ -214,7 +214,7 @@ fn panic_command(_call: &mut Call) -> CommandResult {
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::server::{resp_protocol_loop, RESPPayload};
+    use crate::server::{resp_protocol_loop, RespPayload};
     use crate::testing::{query_redis_async, test_async};
     use apollo_framework::config::Config;
     use apollo_framework::server::Server;
@@ -250,7 +250,7 @@ mod tests {
             // However, as we want to run some examples, we fork the server in an
             // separate thread..
             Server::fork_and_await(
-                &platform.require::<Server<RESPPayload>>(),
+                &platform.require::<Server<RespPayload>>(),
                 &resp_protocol_loop,
             )
             .await;

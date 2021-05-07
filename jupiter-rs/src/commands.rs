@@ -140,7 +140,7 @@ use bytes::BytesMut;
 
 use crate::request::Request;
 use crate::response::{OutputError, Response};
-use crate::server::RESPPayload;
+use crate::server::RespPayload;
 use apollo_framework::average::Average;
 use apollo_framework::platform::Platform;
 use apollo_framework::server::Connection;
@@ -553,7 +553,7 @@ impl Dispatcher {
     pub async fn invoke(
         &mut self,
         request: Request,
-        connection: Option<&Arc<Connection<RESPPayload>>>,
+        connection: Option<&Arc<Connection<RespPayload>>>,
     ) -> Result<BytesMut, OutputError> {
         let response = Response::new();
         match self.commands.get_mut(request.command()) {
@@ -580,7 +580,7 @@ impl Dispatcher {
         &mut self,
         request: Request,
         mut response: Response,
-        connection: Option<&Arc<Connection<RESPPayload>>>,
+        connection: Option<&Arc<Connection<RespPayload>>>,
     ) -> Result<BytesMut, OutputError> {
         match request.command().to_uppercase().as_str() {
             "QUIT" => {

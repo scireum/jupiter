@@ -45,13 +45,13 @@ impl ByteSize for String {
 ///
 /// # Examples
 /// ```
-/// # use jupiter::lru::LRUCache;
+/// # use jupiter::lru::LruCache;
 /// # use std::time::Duration;
 ///
 /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
 /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
 /// // Stale entries are refreshed at most every 2s.
-/// let mut lru = LRUCache::new(128,
+/// let mut lru = LruCache::new(128,
 ///                             1024,
 ///                             Duration::from_secs(60),
 ///                             Duration::from_secs(60 * 60),
@@ -74,7 +74,7 @@ impl ByteSize for String {
 /// assert_eq!(lru.get("Foo1").is_some(), false);
 /// assert_eq!(lru.get("Foo2").is_some(), true);
 ///```
-pub struct LRUCache<V: ByteSize> {
+pub struct LruCache<V: ByteSize> {
     num_entries: usize,
     capacity: usize,
     allocated_memory: usize,
@@ -96,7 +96,7 @@ struct Entry<V: ByteSize> {
     value: V,
 }
 
-impl<V: ByteSize> LRUCache<V> {
+impl<V: ByteSize> LruCache<V> {
     /// Creates a new cache which can store up to **capacity** entries or as many until
     /// they allocated **max_memory** of heap.
     ///
@@ -105,13 +105,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -128,7 +128,7 @@ impl<V: ByteSize> LRUCache<V> {
         hard_ttl: Duration,
         refresh_interval: Duration,
     ) -> Self {
-        LRUCache {
+        LruCache {
             num_entries: 0,
             capacity,
             allocated_memory: 0,
@@ -150,13 +150,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -217,13 +217,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -271,14 +271,14 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be immediately considered stale and be completely evicted
     /// // after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(0),
     ///                             Duration::from_secs(60 * 60),
@@ -335,13 +335,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -371,13 +371,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -400,13 +400,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -441,13 +441,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -466,13 +466,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -499,13 +499,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 10 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(10,
+    /// let mut lru = LruCache::new(10,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -545,13 +545,13 @@ impl<V: ByteSize> LRUCache<V> {
     ///
     /// # Examples
     /// ```
-    /// # use jupiter::lru::LRUCache;
+    /// # use jupiter::lru::LruCache;
     /// # use std::time::Duration;
     ///
     /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
     /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
     /// // Stale entries are refreshed at most every 2s.
-    /// let mut lru = LRUCache::new(128,
+    /// let mut lru = LruCache::new(128,
     ///                             1024,
     ///                             Duration::from_secs(60),
     ///                             Duration::from_secs(60 * 60),
@@ -700,7 +700,7 @@ impl<V: ByteSize> LRUCache<V> {
 
 #[cfg(test)]
 mod tests {
-    use crate::lru::LRUCache;
+    use crate::lru::LruCache;
     use mock_instant::MockClock;
     use tokio::time::Duration;
 
@@ -708,7 +708,7 @@ mod tests {
     fn capacity_is_enforced() {
         // Creates a cache, which hase quite some room memory wise but only permits
         // four entries at the same time...
-        let mut lru = LRUCache::new(
+        let mut lru = LruCache::new(
             4,
             8192,
             Duration::from_secs(60 * 60),
@@ -761,7 +761,7 @@ mod tests {
 
     #[test]
     fn max_memory_is_enforced() {
-        let mut lru = LRUCache::new(
+        let mut lru = LruCache::new(
             128,
             12 * 4,
             Duration::from_secs(60 * 60),
@@ -809,7 +809,7 @@ mod tests {
 
     #[test]
     fn ttls_are_properly_enforced() {
-        let mut lru = LRUCache::new(
+        let mut lru = LruCache::new(
             1024,
             1024,
             Duration::from_secs(15 * 60),
@@ -845,7 +845,7 @@ mod tests {
 
     #[test]
     fn ttls_are_discarded_on_put() {
-        let mut lru = LRUCache::new(
+        let mut lru = LruCache::new(
             1024,
             1024,
             Duration::from_secs(15 * 60),
@@ -871,7 +871,7 @@ mod tests {
 
     #[test]
     fn metrics_are_computed_correctly() {
-        let mut lru = LRUCache::new(
+        let mut lru = LruCache::new(
             4,
             10,
             Duration::from_secs(15 * 60),

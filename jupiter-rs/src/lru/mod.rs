@@ -26,4 +26,4 @@ pub mod cache;
 mod lru_cache;
 
 pub use lru_cache::ByteSize;
-pub use lru_cache::LRUCache;
+pub use lru_cache::LruCache;

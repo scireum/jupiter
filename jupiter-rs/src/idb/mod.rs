@@ -782,7 +782,7 @@ mod tests {
     use crate::idb::{install, Database, DatabaseCommand};
     use crate::ig::docs::Doc;
     use crate::ig::yaml::list_to_doc;
-    use crate::server::{resp_protocol_loop, RESPPayload};
+    use crate::server::{resp_protocol_loop, RespPayload};
     use crate::testing::{query_redis_async, test_async};
     use apollo_framework::config::Config;
     use apollo_framework::platform::Platform;
@@ -1021,7 +1021,7 @@ name: Test
 
         // Fork the server in a separate thread..
         Server::fork_and_await(
-            &platform.require::<Server<RESPPayload>>(),
+            &platform.require::<Server<RespPayload>>(),
             &resp_protocol_loop,
         )
         .await;

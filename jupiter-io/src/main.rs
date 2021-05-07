@@ -3,7 +3,7 @@ use jupiter::builder::Builder;
 use apollo_framework::server::Server;
 #[cfg(not(target_env = "msvc"))]
 use jemallocator::Jemalloc;
-use jupiter::server::{resp_protocol_loop, RESPPayload};
+use jupiter::server::{resp_protocol_loop, RespPayload};
 use std::panic::{set_hook, take_hook};
 
 #[cfg(not(target_env = "msvc"))]
@@ -38,7 +38,7 @@ async fn main() {
     jupiter::repository::install(platform.clone(), jupiter::repository::create(&platform));
 
     platform
-        .require::<Server<RESPPayload>>()
+        .require::<Server<RespPayload>>()
         .event_loop(&resp_protocol_loop)
         .await;
 }

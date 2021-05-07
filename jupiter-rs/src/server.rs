@@ -18,7 +18,7 @@
 //! use tokio::time::Duration;
 //! use apollo_framework::config::Config;
 //! use apollo_framework::server::Server;
-//! use jupiter::server::{RESPPayload, resp_protocol_loop};
+//! use jupiter::server::{RespPayload, resp_protocol_loop};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -33,7 +33,7 @@
 //!     ", None);
 //!
 //!     // Run the platform...
-//!     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop).await;
+//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
 //! }
 //! ```
 use std::sync::Arc;
@@ -67,30 +67,30 @@ const DEFAULT_BUFFER_SIZE: usize = 8192;
 ///
 /// Most notably, this contains the name as reported by the client as well as a counter to
 /// measure the performance of each client (both used by SYS.CONNECTIONS).
-pub struct RESPPayload {
+pub struct RespPayload {
     commands: Average,
     name: ArcSwap<Option<String>>,
 }
 
-impl Clone for RESPPayload {
+impl Clone for RespPayload {
     fn clone(&self) -> Self {
-        RESPPayload {
+        RespPayload {
             commands: self.commands.clone(),
             name: ArcSwap::new(self.name.load().clone()),
         }
     }
 }
 
-impl Default for RESPPayload {
+impl Default for RespPayload {
     fn default() -> Self {
-        RESPPayload {
+        RespPayload {
             commands: Average::new(),
             name: ArcSwap::new(Arc::new(None)),
         }
     }
 }
 
-impl RESPPayload {
+impl RespPayload {
     /// Stores the name of the connected client.
     pub fn set_name(&self, name: &str) {
         self.name.store(Arc::new(Some(name.to_owned())));
@@ -110,7 +110,7 @@ impl RESPPayload {
 /// Executed per client to process incoming RESP commands.
 pub async fn resp_protocol_loop(
     platform: Arc<Platform>,
-    connection: Arc<Connection<RESPPayload>>,
+    connection: Arc<Connection<RespPayload>>,
     mut stream: TcpStream,
 ) -> anyhow::Result<()> {
     // Acquire a dispatcher to have a lock free view of all known commands...
@@ -124,7 +124,7 @@ pub async fn resp_protocol_loop(
         // We apply a timeout here, so that the condition of the while loop is checked every once in a while...
         match tokio::time::timeout(READ_WAIT_TIMEOUT, reader.read_buf(&mut input_buffer)).await {
             // Best case, we read some bytes from the socket..
-            Ok(Ok(bytes_read)) if bytes_read > 0 => match Request::parse(&mut input_buffer) {
+            Ok(Ok(bytes_read)) if bytes_read > 0 => match Request::parse(&input_buffer) {
                 // aaand we were able to parse a RESP Request from the given data in the buffer...
                 Ok(Some(request)) => {
                     log::debug!("Received {}", request.command());
@@ -244,7 +244,7 @@ fn clear_input_buffer(mut input_buffer: BytesMut, request_len: usize) -> BytesMu
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::server::{resp_protocol_loop, RESPPayload};
+    use crate::server::{resp_protocol_loop, RespPayload};
     use crate::testing::{query_redis_async, test_async};
     use apollo_framework::config::Config;
     use apollo_framework::server::Server;
@@ -281,7 +281,7 @@ mod tests {
             // However, as we want to run some examples, we fork the server in an
             // separate thread..
             Server::fork_and_await(
-                &platform.require::<Server<RESPPayload>>(),
+                &platform.require::<Server<RespPayload>>(),
                 &resp_protocol_loop,
             )
             .await;

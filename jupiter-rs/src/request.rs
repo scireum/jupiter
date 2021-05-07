@@ -325,6 +325,11 @@ impl Request {
     pub fn len(&self) -> usize {
         self.len
     }
+
+    /// Determines if the request is completely empty.
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
 }
 
 #[cfg(test)]

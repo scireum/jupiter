@@ -129,9 +129,7 @@ impl<T> Trie<T> {
             if let Some(values) = &mut node.values {
                 values.push(value);
             } else {
-                let mut values = Vec::with_capacity(1);
-                values.push(value);
-                node.values = Some(Box::new(values));
+                node.values = Some(Box::new(vec![value]));
             }
         }
     }

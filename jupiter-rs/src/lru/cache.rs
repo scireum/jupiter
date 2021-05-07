@@ -71,7 +71,7 @@ use apollo_framework::platform::Platform;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::lru::LRUCache;
+use crate::lru::LruCache;
 use yaml_rust::yaml::Hash;
 use yaml_rust::Yaml;
 
@@ -88,7 +88,7 @@ enum Commands {
 }
 
 /// We operate on caches which store plain Strings.
-type StringCache = LRUCache<String>;
+type StringCache = LruCache<String>;
 
 /// Installs the cache actor into the given platform.
 ///
@@ -268,7 +268,7 @@ fn create_or_update(
         }
         None => {
             log::info!("Creating new cache {}...", name);
-            Some(LRUCache::new(
+            Some(LruCache::new(
                 size,
                 max_memory,
                 soft_ttl,

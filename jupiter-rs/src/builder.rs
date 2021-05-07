@@ -8,7 +8,7 @@
 //! ```no_run
 //! # use jupiter::builder::Builder;
 //! # use apollo_framework::server::Server;
-//! # use jupiter::server::RESPPayload;
+//! # use jupiter::server::RespPayload;
 //! # use jupiter::server::resp_protocol_loop;
 //! #[tokio::main]
 //! async fn main() {
@@ -18,12 +18,12 @@
 //!     // Register custom functions here...
 //!
 //!     // Start the main event loop of the server...
-//!     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop).await;
+//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
 //! }
 //! ```
 use std::sync::Arc;
 
-use crate::server::RESPPayload;
+use crate::server::RespPayload;
 use crate::{init_logging, JUPITER_REVISION, JUPITER_VERSION};
 use apollo_framework::platform::Platform;
 use apollo_framework::server::Server;
@@ -38,7 +38,7 @@ use apollo_framework::server::Server;
 /// ```no_run
 /// # use jupiter::builder::Builder;
 /// # use apollo_framework::server::Server;
-/// # use jupiter::server::RESPPayload;
+/// # use jupiter::server::RespPayload;
 /// # use jupiter::server::resp_protocol_loop;
 /// #[tokio::main]
 /// async fn main() {
@@ -48,7 +48,7 @@ use apollo_framework::server::Server;
 ///     // Register custom functions here...
 ///     
 ///     // Start the main event loop of the server...
-///     platform.require::<Server<RESPPayload>>().event_loop(&resp_protocol_loop).await;
+///     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
 /// }
 /// ```
 #[derive(Default)]
@@ -215,7 +215,7 @@ impl Builder {
         }
 
         if self.setup_server {
-            let _ = Server::<RESPPayload>::install(&platform);
+            let _ = Server::<RespPayload>::install(&platform);
         }
 
         if self.setup_commands {

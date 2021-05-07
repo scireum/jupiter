@@ -34,7 +34,7 @@ use bytes::BytesMut;
 #[derive(Debug)]
 pub enum OutputError {
     /// Represents any IO or formatting error while generating the response.
-    IOError(std::fmt::Error),
+    IoError(std::fmt::Error),
 
     /// Represents a protocol error which most probably indicates an invalid nesting
     /// (e.g. when providing too few or too many result entries for an array..).
@@ -43,7 +43,7 @@ pub enum OutputError {
 
 impl From<std::fmt::Error> for OutputError {
     fn from(err: std::fmt::Error) -> OutputError {
-        OutputError::IOError(err)
+        OutputError::IoError(err)
     }
 }
 
@@ -56,7 +56,7 @@ impl From<anyhow::Error> for OutputError {
 impl Display for OutputError {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         match self {
-            OutputError::IOError(e) => write!(f, "IO error: {:?}", e),
+            OutputError::IoError(e) => write!(f, "IO error: {:?}", e),
             OutputError::ProtocolError(e) => write!(f, "Protocol error: {:?}", e),
         }
     }
@@ -65,7 +65,7 @@ impl Display for OutputError {
 impl Error for OutputError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
-            OutputError::IOError(ref e) => Some(e),
+            OutputError::IoError(ref e) => Some(e),
             OutputError::ProtocolError(_) => None,
         }
     }
