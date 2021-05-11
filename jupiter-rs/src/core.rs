@@ -22,6 +22,7 @@ use crate::server::RespPayload;
 use anyhow::Context;
 use apollo_framework::config::Config;
 use apollo_framework::server::Server;
+use itertools::Itertools;
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -165,7 +166,7 @@ fn commands_command(call: &mut Call, commands: &Arc<CommandDictionary>) -> Comma
     result += format!("{:<30} {:>10} {:>20}\n", "Name", "Calls", "Duration").as_str();
     result += crate::response::SEPARATOR;
 
-    for cmd in command_list {
+    for cmd in command_list.iter().sorted_by(|a, b| a.name.cmp(b.name)) {
         result += format!(
             "{:<30} {:>10} {:>20}\n",
             &cmd.name,
