@@ -287,7 +287,7 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
         let mut result = String::new();
 
         result += format!(
-            "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
+            "{:<40} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
             "Name", "Num Rows", "Memory", "Queries", "Scan Qrys", "Scans"
         )
         .as_str();
@@ -295,7 +295,7 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
 
         for (name, table) in database {
             result += format!(
-                "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
+                "{:<40} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
                 name,
                 table.len(),
                 format_size(table.allocated_memory()),
@@ -332,7 +332,7 @@ fn show_sets_command(
         let mut result = String::new();
 
         result += format!(
-            "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+            "{:<40} {:<20} {:>10} {:>12} {:>10}\n",
             "Source", "Name", "Num Elements", "Memory", "Queries"
         )
         .as_str();
@@ -340,7 +340,7 @@ fn show_sets_command(
 
         for (name, (set, source)) in database {
             result += format!(
-                "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+                "{:<40} {:<20} {:>10} {:>12} {:>10}\n",
                 source,
                 name,
                 set.len(),
