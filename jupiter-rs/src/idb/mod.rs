@@ -382,8 +382,10 @@ async fn handle_table_call(mut call: Call, database: &HashMap<String, Arc<Table>
     let table = if let Some(table) = database.get(table_name) {
         table.clone()
     } else {
+        let table_name = table_name.to_owned();
         call.complete(Err(CommandError::ClientError(anyhow::anyhow!(
-            "Unknown table"
+            "Unknown table: {}",
+            table_name
         ))));
         return;
     };
@@ -685,8 +687,10 @@ async fn handle_set_call(mut call: Call, database: &HashMap<String, (Arc<Set>, S
     let (set, _) = if let Some(set) = database.get(set_name) {
         set.clone()
     } else {
+        let set_name = set_name.to_owned();
         call.complete(Err(CommandError::ClientError(anyhow::anyhow!(
-            "Unknown set"
+            "Unknown set: {}",
+            set_name
         ))));
         return;
     };
