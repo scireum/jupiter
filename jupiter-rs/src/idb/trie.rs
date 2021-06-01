@@ -95,7 +95,7 @@ impl<T> Trie<T> {
 
         for &ch in key.as_bytes().iter() {
             if let Some(idx) = node.branches.iter().position(|branch| branch.0 == ch) {
-                // This is save as we received the index from "position()" above. We simply skip the
+                // This is safe as we received the index from "position()" above. We simply skip the
                 // second bounds check...
                 node = unsafe { &mut node.branches.get_unchecked_mut(idx).1 };
             } else {
