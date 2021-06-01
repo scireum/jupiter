@@ -307,13 +307,7 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
         result += crate::response::SEPARATOR;
 
         call.response.bulk(result)?;
-    } else if "raw"
-        == call
-            .request
-            .str_parameter(0)
-            .map(|str| str.as_ref())
-            .unwrap_or("")
-    {
+    } else if "raw" == call.request.str_parameter(0).unwrap_or("") {
         call.response.array(database.len() as i32)?;
         for (name, table) in database {
             call.response.array(5)?;
