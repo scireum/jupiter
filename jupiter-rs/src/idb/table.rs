@@ -289,22 +289,50 @@ impl Table {
         } else {
             let mut fields = fnv::FnvHashSet::default();
             for field in fields_string.split(',') {
-                if let Some(field_symbol) = self.doc.symbols().resolve(field) {
-                    if self.known_indices.contains(&field_symbol) {
-                        let _ = fields.insert(field_symbol);
-                    } else {
-                        // This field or path is not indexed -> abort to a list of scan queries...
+                // Try to resolve the field into a symbol for which we know that an index is
+                // present...
+                if let Some(field_symbol) = self
+                    .doc
+                    .symbols()
+                    .resolve(field)
+                    .filter(|symbol| self.known_indices.contains(symbol))
+                {
+                    let _ = fields.insert(field_symbol);
+                } else {
+                    // If we cannot find an index for the given field, we perform a table scan.
+                    // However, before we do that, we ensure that there isn't an index for the
+                    // base part of a composite field (as in this case we would know that the
+                    // query cannot be fulfilled using this field) See `is_non_existent_inner_index`
+                    // for more details...
+                    if !self.is_non_existent_inner_index(field) {
                         return self.compile_scan_fields(fields_string);
                     }
-                } else {
-                    // We can`t even resolve the field or path into a symbol. Therefore this field
-                    // cannot be indexed and thus we need to resort to a scan query...
-                    return self.compile_scan_fields(fields_string);
                 }
             }
 
             SearchFields::IndexLookup(fields)
         }
+    }
+
+    /// Determines if this is a composite field and if an index exists for any of its parent fields.
+    ///
+    /// A composite field would be "mappings.acme". If we now detect that no index is present for
+    /// this field, but that one exists for "mappings", we know that the query cannot be fulfilled
+    /// for this field, as otherwise the inner index would have been created during indexing.
+    fn is_non_existent_inner_index(&self, field: &str) -> bool {
+        for (index, _) in field.match_indices('.') {
+            if self
+                .doc
+                .symbols()
+                .resolve(&field[..index])
+                .filter(|symbol| self.known_indices.contains(symbol))
+                .is_some()
+            {
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Parses the list of field or paths into a list of queries to execute during the table scan.
@@ -376,7 +404,6 @@ impl Table {
                     ))
                 }
             }
-
             SearchFields::Scan(fields) => {
                 if !exact {
                     Err(anyhow::anyhow!(
