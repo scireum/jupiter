@@ -59,6 +59,8 @@ pub struct Builder {
     setup_config: bool,
     setup_commands: bool,
     setup_server: bool,
+    version_info: String,
+    revision_info: String,
 }
 
 impl Builder {
@@ -71,6 +73,8 @@ impl Builder {
             setup_config: false,
             setup_commands: false,
             setup_server: false,
+            version_info: "-".to_string(),
+            revision_info: "-".to_string(),
         }
     }
 
@@ -184,6 +188,14 @@ impl Builder {
         self
     }
 
+    /// Specifies the version of the application to show when calling `SYS.VERSION`.
+    pub fn with_version(mut self, version: impl AsRef<str>, revision: impl AsRef<str>) -> Self {
+        self.version_info = version.as_ref().to_string();
+        self.revision_info = revision.as_ref().to_string();
+
+        self
+    }
+
     /// Builds the [Platform](apollo_framework::platform::Platform) registry with all the enabled components
     /// being registered.
     pub async fn build(self) -> Arc<Platform> {
@@ -222,7 +234,7 @@ impl Builder {
             let _ = crate::commands::CommandDictionary::install(&platform);
 
             if self.core_commands {
-                crate::core::install(platform.clone());
+                crate::core::install(platform.clone(), self.version_info, self.revision_info);
             }
         }
 
