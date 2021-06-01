@@ -15,7 +15,6 @@
 //! by iterating over its bytes and navigating or building the appropriate tree. The last node
 //! being reached is then supplied with the value to insert. Performing a lookup works quite the
 //! same way.
-use std::ops::Deref;
 use std::slice::Iter;
 
 /// Represents a trie to map strings to values of type `T`.
@@ -25,11 +24,7 @@ pub struct Trie<T> {
 
 struct TrieNode<T> {
     branches: Vec<(u8, TrieNode<T>)>,
-    // Note that we deliberately put the Vec in a box here, as the Option is None most of the time
-    // anyway. Therefore we only want a single word pointer in favor or storing 3 words required
-    // or a Vec.
-    #[allow(clippy::clippy::box_vec)]
-    values: Option<Box<Vec<T>>>,
+    values: Vec<T>,
 }
 
 impl<T> TrieNode<T> {
@@ -39,10 +34,7 @@ impl<T> TrieNode<T> {
         for (_, branch) in self.branches.iter() {
             result += branch.allocated_size();
         }
-        if let Some(values) = &self.values {
-            result += std::mem::size_of::<Vec<T>>();
-            result += values.capacity() * std::mem::size_of::<T>();
-        }
+        result += self.values.capacity() * std::mem::size_of::<T>();
 
         result
     }
@@ -59,11 +51,7 @@ impl<T> TrieNode<T> {
 
     /// Counts the number of values in the sub tree represented by this node.
     fn num_values(&self) -> usize {
-        let mut result = if let Some(values) = &self.values {
-            values.len()
-        } else {
-            0
-        };
+        let mut result = self.values.len();
         for (_, branch) in self.branches.iter() {
             result += branch.num_values();
         }
@@ -94,7 +82,7 @@ impl<T> Trie<T> {
         Trie {
             root: TrieNode {
                 branches: Vec::new(),
-                values: None,
+                values: Vec::new(),
             },
         }
     }
@@ -107,13 +95,15 @@ impl<T> Trie<T> {
 
         for &ch in key.as_bytes().iter() {
             if let Some(idx) = node.branches.iter().position(|branch| branch.0 == ch) {
+                // This is save as we received the index from "position()" above. We simply skip the
+                // second bounds check...
                 node = unsafe { &mut node.branches.get_unchecked_mut(idx).1 };
             } else {
                 node.branches.push((
                     ch,
                     TrieNode {
                         branches: Vec::with_capacity(1),
-                        values: None,
+                        values: Vec::new(),
                     },
                 ));
 
@@ -125,12 +115,7 @@ impl<T> Trie<T> {
         }
 
         if predicate(&value, node) {
-            // insert the value...
-            if let Some(values) = &mut node.values {
-                values.push(value);
-            } else {
-                node.values = Some(Box::new(vec![value]));
-            }
+            node.values.push(value);
         }
     }
 
@@ -201,44 +186,10 @@ impl<T> Trie<T> {
             };
         }
 
-        node.values.as_deref()
-    }
-
-    /// Performs a partial lookup in the Trie.
-    ///
-    /// This is kind of the inverse of [Trie::prefix_query] as re iterate through the Trie as
-    /// long as we can. Once we cannot continue, we return the matched node and the length of
-    /// the query prefix we matched.
-    ///
-    /// # Example
-    /// ```rust
-    /// # use jupiter::idb::trie::Trie;
-    /// let mut trie = Trie::new();
-    /// trie.insert("abc", 1);
-    ///
-    /// let (len, data) = trie.partial_query("abcd").unwrap();
-    /// assert_eq!(len, 3);
-    /// assert_eq!(data[0], 1);
-    /// ```
-    pub fn partial_query(&self, query: impl AsRef<str>) -> Option<(usize, &Vec<T>)> {
-        let mut node = &self.root;
-        let query = query.as_ref().as_bytes();
-        let mut intermediate_result = None;
-
-        for (index, &ch) in query.iter().enumerate() {
-            if let Some(values) = &node.values {
-                intermediate_result = Some((index, values.deref()));
-            }
-            node = match node.branches.iter().find(|branch| branch.0 == ch) {
-                Some((_, node)) => node,
-                None => return intermediate_result,
-            };
-        }
-
-        if let Some(values) = &node.values {
-            Some((query.len(), values.deref()))
+        if node.values.is_empty() {
+            None
         } else {
-            intermediate_result
+            Some(&node.values)
         }
     }
 
@@ -294,60 +245,9 @@ impl<T> Trie<T> {
             };
         }
 
-        if let Some(values) = &node.values {
-            PrefixIter {
-                current_iter: Some(values.iter()),
-                stack: vec![(0, node)],
-            }
-        } else {
-            PrefixIter {
-                current_iter: None,
-                stack: vec![(0, node)],
-            }
-        }
-    }
-
-    /// Performs a depth first traversal of the TRIE while permitting to filter which branches to
-    /// visit. We also permit to drag a state along which is passed into the predicate.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use jupiter::idb::trie::Trie;
-    /// let mut trie = Trie::new();
-    /// trie.insert("1", 1);
-    /// trie.insert("2", 2);
-    /// trie.insert("3", 3);
-    ///
-    /// // This predicate accepts all branches and we therefore end up with all values.
-    /// let results: Vec<&i32> = trie.filtered_depth_first(1, |s, ch| Some(1)).collect();
-    /// assert_eq!(results, vec![&1, &2, &3]);
-    /// ```
-    pub fn filtered_depth_first<S, P>(
-        &self,
-        initial_state: S,
-        predicate: P,
-    ) -> FilteredDepthFirstIter<T, S, P>
-    where
-        P: Fn(S, u8) -> Option<S>,
-    {
-        // Here we start with the root node but depending if there are values present, we should
-        // initialize the iterator properly. We could also always pass the iter in and let the
-        // implementation below detect, that the values are empty and thus continue with the next
-        // node. However, this case is quite common (values for "" are rare), therefore we perform
-        // this check here (which is cheap and efficient).
-        if let Some(values) = &self.root.values {
-            FilteredDepthFirstIter {
-                current_iter: Some(values.iter()),
-                stack: vec![(0, initial_state, &self.root)],
-                predicate,
-            }
-        } else {
-            FilteredDepthFirstIter {
-                current_iter: None,
-                stack: vec![(0, initial_state, &self.root)],
-                predicate,
-            }
+        PrefixIter {
+            current_iter: Some(node.values.iter()),
+            stack: vec![(0, node)],
         }
     }
 
@@ -430,11 +330,9 @@ impl<T> Trie<T> {
     where
         C: FnMut(&str, &T),
     {
-        if let Some(values) = &node.values {
-            if let Ok(prefix_str) = std::str::from_utf8(prefix.as_slice()) {
-                for value in values.iter() {
-                    callback(prefix_str, value);
-                }
+        if let Ok(prefix_str) = std::str::from_utf8(prefix.as_slice()) {
+            for value in node.values.iter() {
+                callback(prefix_str, value);
             }
         }
 
@@ -471,11 +369,7 @@ impl<T: PartialEq> Trie<T> {
     /// ```
     pub fn insert_unique(&mut self, key: &str, value: T) {
         self.insert_checked(key, value, |new_value, node| {
-            if let Some(values) = &node.values {
-                !values.contains(&new_value)
-            } else {
-                true
-            }
+            !node.values.contains(&new_value)
         });
     }
 }
@@ -532,11 +426,11 @@ impl<'a, T> Iterator for PrefixIter<'a, T> {
                 *idx += 1;
                 // Inspect the child node next (this is a DFS after all...)
                 self.stack.push((0, &child.1));
-                if let Some(values) = &child.1.values {
+                if !child.1.values.is_empty() {
                     // However, if the child has values, first and foremost emit those by
                     // storing them in current_iter (which will be picked up by the self.next()
                     // below.
-                    self.current_iter = Some(values.iter());
+                    self.current_iter = Some(child.1.values.iter());
                     break;
                 }
             } else {
@@ -550,59 +444,6 @@ impl<'a, T> Iterator for PrefixIter<'a, T> {
         // invoke next again (yes we could also whack a loop around all this, but this would
         // let the code look more complex so we rely on the compiler to figure this out
         // all by itself, tail call optimizations aren't that hard anyway...).
-        self.next()
-    }
-}
-
-/// Represents the iterator used by [Trie::filtered_depth_first].
-pub struct FilteredDepthFirstIter<'a, T, S, P>
-where
-    P: Fn(S, u8) -> Option<S>,
-{
-    stack: Vec<(usize, S, &'a TrieNode<T>)>,
-    current_iter: Option<Iter<'a, T>>,
-    predicate: P,
-}
-
-impl<'a, T, S: Sized + Copy, P> Iterator for FilteredDepthFirstIter<'a, T, S, P>
-where
-    P: Fn(S, u8) -> Option<S>,
-{
-    type Item = &'a T;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // Note that this iterator performs almost just like PrefixIter::next.
-        // The only difference is that the external state is dragged along and that we check which
-        // branches to visit, using the given predicate.
-        if let Some(current) = &mut self.current_iter {
-            if let Some(value) = current.next() {
-                return Some(value);
-            } else {
-                self.current_iter = None;
-            }
-        }
-        if self.stack.is_empty() {
-            return None;
-        }
-
-        while let Some((idx, state, node)) = self.stack.last_mut() {
-            if let Some((ch, child)) = node.branches.get(*idx) {
-                *idx += 1;
-
-                // Note that we perform the predicate / state transition check here in contrast
-                // to consuming all nodes
-                if let Some(next_state) = (self.predicate)(*state, *ch) {
-                    self.stack.push((0, next_state, child));
-                    if let Some(values) = &child.values {
-                        self.current_iter = Some(values.iter());
-                        break;
-                    }
-                }
-            } else {
-                let _ = self.stack.pop();
-            }
-        }
-
         self.next()
     }
 }
@@ -660,33 +501,6 @@ mod tests {
 
         let results: Vec<&i32> = trie.prefix_query("unknown").collect();
         assert_eq!(results.is_empty(), true);
-    }
-
-    #[test]
-    fn depth_first_search_works() {
-        let mut trie = Trie::new();
-        trie.insert("1", 1);
-        trie.insert("2", 2);
-        trie.insert("3", 3);
-        trie.insert("11", 4);
-        trie.insert("12", 5);
-        trie.insert("13", 6);
-        trie.insert("121", 7);
-        trie.insert("122", 8);
-        trie.insert("123", 9);
-
-        // Note this is a poor man's way of checking if the current state matches
-        // the key of the branch to check.
-        //
-        // Therefore we only follow branches with the current state and then set the
-        // next state and this next expected state to "+1"...
-        let predicate = |s, ch| if ch == s + b'0' { Some(s + 1) } else { None };
-
-        let results: Vec<&i32> = trie.filtered_depth_first(1, predicate).collect();
-
-        // ...therefore we expect to visit "1" (with value 1), "12" (with value 5) and
-        // "123" (with value 9):
-        assert_eq!(results, vec![&1, &5, &9]);
     }
 
     #[test]
