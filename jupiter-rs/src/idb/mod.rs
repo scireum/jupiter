@@ -287,18 +287,17 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
         let mut result = String::new();
 
         result += format!(
-            "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
-            "Name", "Num Rows", "Memory", "Queries", "Scan Qrys", "Scans"
+            "{:<40} {:>10} {:>10} {:>12} {:>10}\n",
+            "Name", "Num Rows", "Queries", "Scan Qrys", "Scans"
         )
         .as_str();
         result += crate::response::SEPARATOR;
 
         for (name, table) in database {
             result += format!(
-                "{:<20} {:>10} {:>12} {:>10} {:>12} {:>10}\n",
+                "{:<40} {:>10} {:>10} {:>12} {:>10}\n",
                 name,
                 table.len(),
-                format_size(table.allocated_memory()),
                 table.num_queries(),
                 table.num_scan_queries(),
                 table.num_scans()
@@ -308,16 +307,34 @@ fn show_tables_command(call: &mut Call, database: &HashMap<String, Arc<Table>>) 
         result += crate::response::SEPARATOR;
 
         call.response.bulk(result)?;
-    } else {
+    } else if "raw"
+        == call
+            .request
+            .str_parameter(0)
+            .map(|str| str.as_ref())
+            .unwrap_or("")
+    {
         call.response.array(database.len() as i32)?;
         for (name, table) in database {
-            call.response.array(6)?;
+            call.response.array(5)?;
             call.response.bulk(name)?;
             call.response.number(table.len() as i64)?;
-            call.response.number(table.allocated_memory() as i64)?;
             call.response.number(table.num_queries() as i64)?;
             call.response.number(table.num_scan_queries() as i64)?;
             call.response.number(table.num_scans() as i64)?;
+        }
+    } else {
+        let table_name = call.request.str_parameter(0).unwrap_or("");
+        for (name, table) in database {
+            if name.as_str() == table_name {
+                call.response.array(6)?;
+                call.response.bulk(name)?;
+                call.response.number(table.len() as i64)?;
+                call.response.number(table.allocated_memory() as i64)?;
+                call.response.number(table.num_queries() as i64)?;
+                call.response.number(table.num_scan_queries() as i64)?;
+                call.response.number(table.num_scans() as i64)?;
+            }
         }
     }
     Ok(())
@@ -332,7 +349,7 @@ fn show_sets_command(
         let mut result = String::new();
 
         result += format!(
-            "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+            "{:<40} {:<20} {:>10} {:>12} {:>10}\n",
             "Source", "Name", "Num Elements", "Memory", "Queries"
         )
         .as_str();
@@ -340,7 +357,7 @@ fn show_sets_command(
 
         for (name, (set, source)) in database {
             result += format!(
-                "{:<20} {:<20} {:>10} {:>12} {:>10}\n",
+                "{:<40} {:<20} {:>10} {:>12} {:>10}\n",
                 source,
                 name,
                 set.len(),
