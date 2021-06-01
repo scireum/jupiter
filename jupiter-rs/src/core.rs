@@ -19,9 +19,11 @@ use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
 use crate::server::RespPayload;
+use crate::{JUPITER_REVISION, JUPITER_VERSION};
 use anyhow::Context;
 use apollo_framework::config::Config;
 use apollo_framework::server::Server;
+use apollo_framework::{APOLLO_REVISION, APOLLO_VERSION};
 use itertools::Itertools;
 use std::borrow::Cow;
 use std::sync::Arc;
@@ -34,6 +36,7 @@ enum Commands {
     Kill,
     Mem,
     SetConfig,
+    Version,
     #[cfg(debug_assertions)]
     Panic,
 }
@@ -41,9 +44,9 @@ enum Commands {
 /// Installs the diagnostic commands into the given platform.
 ///
 /// This is invoked by the [Builder](crate::builder::Builder) unless disabled.
-pub fn install(platform: Arc<Platform>) {
+pub fn install(platform: Arc<Platform>, version_info: String, revision_info: String) {
     if let Some(commands) = platform.find::<CommandDictionary>() {
-        let queue = actor(platform.clone());
+        let queue = actor(platform.clone(), version_info, revision_info);
         commands.register_command("SYS.COMMANDS", queue.clone(), Commands::Commands as usize);
         commands.register_command(
             "SYS.CONNECTIONS",
@@ -52,6 +55,7 @@ pub fn install(platform: Arc<Platform>) {
         );
         commands.register_command("SYS.KILL", queue.clone(), Commands::Kill as usize);
         commands.register_command("SYS.MEM", queue.clone(), Commands::Mem as usize);
+        commands.register_command("SYS.VERSION", queue.clone(), Commands::Version as usize);
         commands.register_command(
             "SYS.SET_CONFIG",
             queue.clone(),
@@ -63,7 +67,11 @@ pub fn install(platform: Arc<Platform>) {
 }
 
 /// Receives incoming calls for the commands defined above.
-fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
+fn actor(
+    platform: Arc<Platform>,
+    version_info: String,
+    revision_info: String,
+) -> crate::commands::Queue {
     use crate::commands::ResultExt;
 
     let (queue, mut endpoint) = queue();
@@ -87,6 +95,11 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                     Some(Commands::SetConfig) => {
                         set_config_command(&mut call, &config).await.complete(call)
                     }
+                    Some(Commands::Version) => {
+                        version_command(&mut call, version_info.as_str(), revision_info.as_str())
+                            .complete(call)
+                    }
+
                     #[cfg(debug_assertions)]
                     Some(Commands::Panic) => panic_command(&mut call).complete(call),
                     _ => call.handle_unknown_token(),
@@ -200,6 +213,35 @@ fn mem_command(call: &mut Call) -> CommandResult {
         let mut result = "Use 'SYS.MEM raw' to obtain the raw values.\n\n".to_owned();
         result += format!("{:20} {:>10}\n", "Used Memory:", format_size(allocated)).as_str();
         result += format!("{:20} {:>10}\n", "Allocated Memory:", format_size(resident)).as_str();
+
+        call.response.bulk(result)?;
+    }
+
+    Ok(())
+}
+
+fn version_command(call: &mut Call, version_info: &str, revision_info: &str) -> CommandResult {
+    if call.request.parameter_count() == 1 {
+        call.response.array(6)?;
+        call.response.simple(APOLLO_VERSION)?;
+        call.response.simple(APOLLO_REVISION)?;
+        call.response.simple(JUPITER_VERSION)?;
+        call.response.simple(JUPITER_REVISION)?;
+        call.response.bulk(version_info)?;
+        call.response.bulk(revision_info)?;
+    } else {
+        let mut result = "Use 'SYS.VERSION raw' to obtain the raw values.\n\n".to_owned();
+        result += format!(
+            "Apollo:      {:>20} / {}\n",
+            APOLLO_VERSION, APOLLO_REVISION
+        )
+        .as_str();
+        result += format!(
+            "Jupiter:     {:>20} / {}\n",
+            JUPITER_VERSION, JUPITER_REVISION
+        )
+        .as_str();
+        result += format!("Application: {:>20} / {}\n", version_info, revision_info).as_str();
 
         call.response.bulk(result)?;
     }
