@@ -334,6 +334,29 @@ async fn sync_lists(
     previous_files: &[RepositoryFile],
     change_notifier: &mut mpsc::Sender<BackgroundEvent>,
 ) {
+    for old_file in previous_files {
+        if current_files
+            .iter()
+            .find(|other| &old_file == other)
+            .is_none()
+        {
+            log::info!("Deleted file found in repository: {}", old_file.name);
+
+            if let Err(error) = change_notifier
+                .send(BackgroundEvent::FileEvent(FileEvent::FileDeleted(
+                    old_file.clone(),
+                )))
+                .await
+            {
+                log::error!(
+                    "Failed to notify frontend about a the delete of {}: {}",
+                    old_file.name,
+                    error
+                );
+            }
+        }
+    }
+
     for new_file in current_files {
         if previous_files
             .iter()
@@ -353,29 +376,6 @@ async fn sync_lists(
                 log::error!(
                     "Failed to notify frontend about a change in {}: {}",
                     new_file.name,
-                    error
-                );
-            }
-        }
-    }
-
-    for old_file in previous_files {
-        if current_files
-            .iter()
-            .find(|other| &old_file == other)
-            .is_none()
-        {
-            log::info!("Deleted file found in repository: {}", old_file.name);
-
-            if let Err(error) = change_notifier
-                .send(BackgroundEvent::FileEvent(FileEvent::FileDeleted(
-                    old_file.clone(),
-                )))
-                .await
-            {
-                log::error!(
-                    "Failed to notify frontend about a the delete of {}: {}",
-                    old_file.name,
                     error
                 );
             }
