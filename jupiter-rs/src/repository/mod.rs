@@ -348,6 +348,11 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
             ForegroundCommands::ForceFetch as usize,
         );
         commands.register_command(
+            "REPO.RELOAD",
+            command_queue.clone(),
+            ForegroundCommands::ForceReload as usize,
+        );
+        commands.register_command(
             "REPO.LIST",
             command_queue.clone(),
             ForegroundCommands::List as usize,
