@@ -356,7 +356,7 @@ async fn sync_lists(
                 .await
             {
                 log::error!(
-                    "Failed to notify frontend about a the delete of {}: {}",
+                    "Failed to notify frontend about the deletion of {}: {}",
                     old_file.name,
                     error
                 );
