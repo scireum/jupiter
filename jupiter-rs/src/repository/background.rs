@@ -42,6 +42,9 @@ pub enum BackgroundCommand {
     /// Deletes the given file.
     Delete(String),
 
+    /// Forcefully triggers all loaders of a given file.
+    ForceReload(String),
+
     /// Executes the given loader after the given file has changed.
     ExecuteLoaderForChange(LoaderInfo),
 
@@ -117,6 +120,10 @@ pub fn actor(
                             }
                             Err(e) => log::error!("Failed to store data for: {} - {:?}", path, e),
                         }
+                    }
+                    BackgroundCommand::ForceReload(path) => {
+                        log::info!("Forcing a reload of {}...", path);
+                        force_reload_command(&path, &files, &mut change_notifier).await;
                     }
                     BackgroundCommand::Delete(path) => {
                         log::info!("Deleting {}...", path);
@@ -334,6 +341,29 @@ async fn sync_lists(
     previous_files: &[RepositoryFile],
     change_notifier: &mut mpsc::Sender<BackgroundEvent>,
 ) {
+    for old_file in previous_files {
+        if current_files
+            .iter()
+            .find(|other| &old_file == other)
+            .is_none()
+        {
+            log::info!("Deleted file found in repository: {}", old_file.name);
+
+            if let Err(error) = change_notifier
+                .send(BackgroundEvent::FileEvent(FileEvent::FileDeleted(
+                    old_file.clone(),
+                )))
+                .await
+            {
+                log::error!(
+                    "Failed to notify frontend about the deletion of {}: {}",
+                    old_file.name,
+                    error
+                );
+            }
+        }
+    }
+
     for new_file in current_files {
         if previous_files
             .iter()
@@ -353,29 +383,6 @@ async fn sync_lists(
                 log::error!(
                     "Failed to notify frontend about a change in {}: {}",
                     new_file.name,
-                    error
-                );
-            }
-        }
-    }
-
-    for old_file in previous_files {
-        if current_files
-            .iter()
-            .find(|other| &old_file == other)
-            .is_none()
-        {
-            log::info!("Deleted file found in repository: {}", old_file.name);
-
-            if let Err(error) = change_notifier
-                .send(BackgroundEvent::FileEvent(FileEvent::FileDeleted(
-                    old_file.clone(),
-                )))
-                .await
-            {
-                log::error!(
-                    "Failed to notify frontend about a the delete of {}: {}",
-                    old_file.name,
                     error
                 );
             }
@@ -414,6 +421,25 @@ async fn delete_file_command(path: &str) -> anyhow::Result<()> {
     tokio::fs::remove_file(effective_path).await?;
 
     Ok(())
+}
+
+async fn force_reload_command(
+    path: &str,
+    files: &[RepositoryFile],
+    change_notifier: &mut mpsc::Sender<BackgroundEvent>,
+) {
+    for file in files {
+        if file.name.contains(path) {
+            if let Err(error) = change_notifier
+                .send(BackgroundEvent::FileEvent(FileEvent::FileChanged(
+                    file.clone(),
+                )))
+                .await
+            {
+                log::error!("Failed to forcefully reload {}: {}", file.name, error);
+            }
+        }
+    }
 }
 
 async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Result<()> {

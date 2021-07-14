@@ -31,6 +31,9 @@ pub enum ForegroundCommands {
     /// Fetches the requested url without any `Last-Modified` checks.
     ForceFetch,
 
+    /// Forcefully triggers all loaders for a file.
+    ForceReload,
+
     /// Deletes the given file.
     Delete,
 
@@ -82,6 +85,9 @@ pub fn actor(
                         },
                         Some(ForegroundCommands::ForceFetch) => {
                             fetch_command(&mut call, &mut background_task_sender, true).await.complete(call);
+                        }
+                        Some(ForegroundCommands::ForceReload) => {
+                            force_reload_command(&mut call, &mut background_task_sender).await.complete(call);
                         }
                         Some(ForegroundCommands::Delete) => {
                             delete_command(&mut call, &mut background_task_sender).await.complete(call);
@@ -189,6 +195,21 @@ async fn fetch_command(
             .await
             .context("Failed to enqueue FETCH into background queue.")?;
     }
+
+    call.response.ok()?;
+    Ok(())
+}
+
+async fn force_reload_command(
+    call: &mut Call,
+    background_sender: &mut mpsc::Sender<BackgroundCommand>,
+) -> CommandResult {
+    let path = call.request.str_parameter(0)?.to_string();
+
+    background_sender
+        .send(BackgroundCommand::ForceReload(path))
+        .await
+        .context("Failed to enqueue FORCE_RELOAD into background queue.")?;
 
     call.response.ok()?;
     Ok(())
