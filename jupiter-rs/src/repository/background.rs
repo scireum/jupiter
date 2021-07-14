@@ -425,7 +425,7 @@ async fn delete_file_command(path: &str) -> anyhow::Result<()> {
 
 async fn force_reload_command(
     path: &str,
-    files: &Vec<RepositoryFile>,
+    files: &[RepositoryFile],
     change_notifier: &mut mpsc::Sender<BackgroundEvent>,
 ) {
     for file in files {
