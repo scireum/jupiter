@@ -86,9 +86,9 @@ pub struct Response {
     nesting: Vec<i32>,
 }
 
-/// Represnets a separator used when outputting management data.
+/// Represents a separator used when outputting management data.
 pub static SEPARATOR: &str =
-    "-------------------------------------------------------------------------------\n";
+    "---------------------------------------------------------------------------------------------------\n";
 
 impl Response {
     /// Creates a new response.
