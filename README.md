@@ -163,23 +163,31 @@ If all modules are enabled, the following commands are available.
   Performs a lookup for the given filter value in the given search path (inner fields separated
   by ".") within the given table. If a result is found, the values for path1..pathN are
   extracted and returned. If no path is given, the number of matches is returned. If multiple
-  documents match, only the first one if returned. Note that if a path matches an inner object
+  documents match, only the first one is returned. Note that if a path matches an inner object
   (which is especially true for "."), the result will be wrapped as JSON.
+  Note that `IDB.LOOKUP` is **case sensitive** by default. However, if a fulltext index is placed on
+  the field being queried, a case insensitive lookup can be performed if the given filter_value
+  is already lowercase. This might be used e.g. for reverse lookups to find a code for a given
+  text in a certain (or any) language. See [repository](jupiter-rs/src/repository) for a description
+  of loaders which ultimately define the tables in IDB and their indices.
 * `IDB.ILOOKUP table primary_lang fallback_lang search_path filter_value path1`
-  Behaves just like `IDB.LOOKUP`.However, of one of the given extraction paths points to an
+  Behaves just like `IDB.LOOKUP`. However, of one of the given extraction paths points to an
   inner map, we expect this to be a map of translation where we first try to find the value for
   the primary language and if none is found for the fallback language. Note that, if both languages
   fail to yield a value, we attempt to resolve a final fallback using **xx** as language
   code. If all these attempts fail, we output an empty string. Note that therefore it is not
   possible to return an inner map when using ILOOKUP which is used for anything other than
   translations. Note however, that extracting single values using a proper path still works.
+  See `IDB.LOOKUP` for details when this is case-sensitive and when it isn't.
 * `IDB.QUERY table num_skip max_results search_path filter_value path1`
   Behaves just like lookup, but doesn't just return the first result, but skips over the first
   `num_skip` results and then outputs up to `max_result` rows. Not that this is again limited to
   at most **1000**.
+  See `IDB.LOOKUP` for details when this is case-sensitive and when it isn't.
 * `IDB.QUERY table primary_lang fallback_lang num_skip max_results search_path filter_value path1`
   Provides essentially the same i18n lookups for `IDB.QUERY` as `IDB.ILOOKUP` does for
   `IDB.LOOKUP`.
+  See `IDB.LOOKUP` for details when this is case-sensitive and when it isn't.
 * `IDB.SEARCH table num_skip max_results search_paths filter_value path1`
   Performs a search in all fields given as `search_paths`. This can either be comma separated
   like "path1,path2,path3" or a "*" to select all fields. Note that for a given search value,
