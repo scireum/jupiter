@@ -622,6 +622,20 @@ mod tests {
             .unwrap();
         assert_eq!(row.query("name.en").as_str().unwrap(), "Austria");
 
+        // Ensure inner indices are created and used...
+        let scan_queries_so_far = table.num_scan_queries();
+        let row = table
+            .query("mappings.acme", "DD", true)
+            .unwrap()
+            .next()
+            .unwrap();
+        assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
+        // Test that even unsuccessful queries never resort to a table scan...
+        let _ = table.query("mappings.acme1", "DD", true);
+        let _ = table.query("mappings.acme", "YY", true);
+        // Ensure neither query needed a scan to be fulfilled...
+        assert_eq!(table.num_scan_queries(), scan_queries_so_far);
+
         // Enforce a simple table scan...
         assert_eq!(table.table_scan().count(), 2);
 
@@ -640,11 +654,14 @@ iso:
 name:
   de: "Deutschland"
   en: "Germany"
+mappings:
+  acme: "DD"
 ---
 code: "A"
 iso:
   two: "at"
   three: "aut"
+  upper: "AAA"
 name:
   de: "Österreich"
   en: "Austria"
