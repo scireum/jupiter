@@ -138,7 +138,6 @@ impl Table {
                 let mut dedup_set = fnv::FnvHashSet::default();
                 let mut additional_index_values = Vec::new();
 
-                // Fetch the exact values..
                 for child in query.execute_all(element) {
                     // Extract all exact matches and insert them into the index...
                     Table::search_values(child, field_name, |field, value| {
@@ -173,15 +172,18 @@ impl Table {
                         // An example would be a list which contains the entries "hello world" and "hello".
                         // As the tokenized version of "hello world" would also emit "hello" (as loose
                         // term) we first want to collect it as exact term.
+                        //
+                        // Note that we index the complete (but lowercased) token as a potential
+                        // exact match - see README.md for details
                         Table::search_values(child, "", |_, value| {
-                            Table::tokenize(value, |token| {
+                            Table::tokenize(value, |token, full_token| {
                                 if !dedup_set.contains(token) {
                                     trie.insert_unique(
                                         token,
                                         IndexEntry {
                                             field: field_symbol,
                                             row,
-                                            exact: false,
+                                            exact: full_token,
                                         },
                                     );
                                     let _ = dedup_set.insert(token.to_string());
@@ -251,18 +253,18 @@ impl Table {
     /// callback.
     fn tokenize<C>(value: &str, mut callback: C)
     where
-        C: FnMut(&str),
+        C: FnMut(&str, bool),
     {
         let effective_value = value.to_lowercase();
-        callback(effective_value.as_str());
+        callback(effective_value.as_str(), true);
 
         for token in effective_value.split(Table::split_pattern) {
             let effective_token = token.trim_matches(|ch: char| !ch.is_alphanumeric());
             if effective_token.len() >= MIN_TOKEN_LENGTH {
-                callback(effective_token);
+                callback(effective_token, false);
                 for inner_token in effective_token.split(|ch: char| !ch.is_alphanumeric()) {
                     if inner_token.len() >= MIN_TOKEN_LENGTH {
-                        callback(inner_token);
+                        callback(inner_token, false);
                     }
                 }
             }
@@ -590,6 +592,7 @@ mod tests {
             vec![
                 IndexType::lookup("code"),
                 IndexType::lookup("iso.two"),
+                IndexType::lookup("mappings"),
                 IndexType::fulltext("name"),
             ],
         )
@@ -601,11 +604,32 @@ mod tests {
         // Check that exact query work...
         let row = table.query("code", "D", true).unwrap().next().unwrap();
         assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
-
-        // Check that inexact queries work...
-        let row = table.query("name", "de", false).unwrap().next().unwrap();
+        // Ensure that exact queries are case sensitive...
+        assert_eq!(
+            table.query("code", "d", true).unwrap().next().is_none(),
+            true
+        );
+        // Ensure that exact queries for which a fulltext index exists, can be case-insensitive
+        // if the search value is already lowercased...
+        let row = table
+            .query("name", "deutschland", true)
+            .unwrap()
+            .next()
+            .unwrap();
         assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
 
+        // Check that inexact queries work...
+        let row = table.query("name", "deu", false).unwrap().next().unwrap();
+        assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
+        let row = table.query("name", "Deu", false).unwrap().next().unwrap();
+        assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
+        // Ensure that exact queries don't match prefixes...
+        assert_eq!(
+            table.query("name", "de", true).unwrap().next().is_none(),
+            true
+        );
+
+        // Ensure that exact queries remain empty if no match is present...
         assert_eq!(
             table.query("name", "xxx", true).unwrap().next().is_none(),
             true
@@ -622,11 +646,25 @@ mod tests {
             .unwrap();
         assert_eq!(row.query("name.en").as_str().unwrap(), "Austria");
 
+        // Ensure inner indices are created and used...
+        let scan_queries_so_far = table.num_scan_queries();
+        let row = table
+            .query("mappings.acme", "DD", true)
+            .unwrap()
+            .next()
+            .unwrap();
+        assert_eq!(row.query("name.de").as_str().unwrap(), "Deutschland");
+        // Test that even unsuccessful queries never resort to a table scan...
+        let _ = table.query("mappings.acme1", "DD", true);
+        let _ = table.query("mappings.acme", "YY", true);
+        // Ensure neither query needed a scan to be fulfilled...
+        assert_eq!(table.num_scan_queries(), scan_queries_so_far);
+
         // Enforce a simple table scan...
         assert_eq!(table.table_scan().count(), 2);
 
         // Ensure that the metrics are correctly updated...
-        assert_eq!(table.num_queries(), 5);
+        assert_eq!(table.num_queries(), 12);
         assert_eq!(table.num_scan_queries(), 1);
         assert_eq!(table.num_scans(), 1);
     }
@@ -640,11 +678,14 @@ iso:
 name:
   de: "Deutschland"
   en: "Germany"
+mappings:
+  acme: "DD"
 ---
 code: "A"
 iso:
   two: "at"
   three: "aut"
+  upper: "AAA"
 name:
   de: "Österreich"
   en: "Austria"
