@@ -84,6 +84,7 @@
 //!   outputting up to `max_results`rows.
 //! * **IDB.ISCAN**: `IDB.ISCAN table primary_lang fallback_lang num_skip max_results path1 path2 path3`
 //!   Again, behaves just like `IDB.SCAN` but provides i18n lookup for the given languages.
+//! * **IDB.LEN**: `IDB.LEN` reports the size of the given table.
 //! * **IDB.SHOW_TABLES**: `IDB.SHOW_TABLES` reports all tables and their usage statistics.
 //! * **IDB.SHOW_SETS**: `IDB.SHOW_SETS` reports all sets and their usage statistics.
 //! * **IDB.CONTAINS**: `IDB.CONTAINS set key1 key2 key3` reports if the given keys are contained
@@ -91,7 +92,8 @@
 //!   reported.
 //! * **IDB.INDEX_OF**: `IDB.INDEX_OF set key1 key2 key3` reports the insertion index for each
 //!   of the given keys using one-based indices.
-//!    
+//! * **IDB.CARDINALITY**: `IDB.CARDINALITY set` reports the size of the given set.
+//!
 //! # Example
 //!
 //! Imagine we have the following super simplified dataset representing some countries:
@@ -205,6 +207,8 @@ enum Commands {
     ShowSets,
     Contains,
     IndexOf,
+    Len,
+    Cardinality,
 }
 
 /// Installs an actor which handles the commands as described above.
@@ -247,7 +251,17 @@ pub fn install(platform: Arc<Platform>) {
             cmd_queue.clone(),
             Commands::Contains as usize,
         );
-        commands.register_command("IDB.INDEX_OF", cmd_queue, Commands::IndexOf as usize);
+        commands.register_command(
+            "IDB.INDEX_OF",
+            cmd_queue.clone(),
+            Commands::IndexOf as usize,
+        );
+        commands.register_command(
+            "IDB.CARDINALITY",
+            cmd_queue.clone(),
+            Commands::Cardinality as usize,
+        );
+        commands.register_command("IDB.LEN", cmd_queue, Commands::Len as usize);
     }
 }
 
@@ -285,7 +299,9 @@ async fn handle_call(
     match command {
         Some(Commands::ShowTables) => show_tables_command(&mut call, tables).complete(call),
         Some(Commands::ShowSets) => show_sets_command(&mut call, sets).complete(call),
-        Some(Commands::Contains) | Some(Commands::IndexOf) => handle_set_call(call, sets).await,
+        Some(Commands::Contains) | Some(Commands::IndexOf) | Some(Commands::Cardinality) => {
+            handle_set_call(call, sets).await
+        }
         _ => handle_table_call(call, tables).await,
     }
 }
@@ -433,6 +449,7 @@ async fn handle_table_call(mut call: Call, database: &HashMap<String, Arc<Table>
             }
             Some(Commands::Scan) => execute_scan(&mut call, table, false).complete(call),
             Some(Commands::IScan) => execute_scan(&mut call, table, true).complete(call),
+            Some(Commands::Len) => execute_table_len(&mut call, table).complete(call),
             _ => call.complete(Err(CommandError::ServerError(anyhow::anyhow!(
                 "Unknown token received: {}!",
                 token
@@ -691,6 +708,12 @@ fn hash_to_json(element: Element, i18n: &I18nContext) -> serde_json::value::Valu
     serde_json::json!(hash)
 }
 
+fn execute_table_len(call: &mut Call, table: Arc<Table>) -> CommandResult {
+    call.response.number(table.len() as i64)?;
+
+    Ok(())
+}
+
 /// For a set related call, we perform the lookup in the set dictionary while having
 /// exclusive access to the underlying hash map. We then pass the **Arc** reference into
 /// a separate thread so that multiple queries can be executed simultaneously.
@@ -719,6 +742,7 @@ async fn handle_set_call(mut call: Call, database: &HashMap<String, (Arc<Set>, S
         let token = call.token;
         match Commands::from_usize(token) {
             Some(Commands::Contains) => set_contains_command(&mut call, set).complete(call),
+            Some(Commands::Cardinality) => set_cardinality_command(&mut call, set).complete(call),
             Some(Commands::IndexOf) => set_index_of_command(&mut call, set).complete(call),
             _ => call.complete(Err(CommandError::ServerError(anyhow::anyhow!(
                 "Unknown token received: {}!",
@@ -756,6 +780,12 @@ fn set_index_of_command(call: &mut Call, set: Arc<Set>) -> CommandResult {
                 .number(set.index_of(call.request.str_parameter(index)?) as i64)?;
         }
     }
+
+    Ok(())
+}
+
+fn set_cardinality_command(call: &mut Call, set: Arc<Set>) -> CommandResult {
+    call.response.number(set.len() as i64)?;
 
     Ok(())
 }
@@ -892,6 +922,12 @@ name: Test
             .await
             .unwrap();
             assert_eq!(result[0][0], "de");
+
+            let result =
+                query_redis_async(|con| redis::cmd("IDB.LEN").arg("countries").query::<i32>(con))
+                    .await
+                    .unwrap();
+            assert_eq!(result, 3);
 
             let result = query_redis_async(|con| {
                 redis::cmd("IDB.LOOKUP")
@@ -1146,6 +1182,15 @@ name: Test
                 .await
                 .unwrap(),
                 0
+            );
+
+            assert_eq!(
+                query_redis_async(|con| redis::cmd("IDB.CARDINALITY")
+                    .arg("test_set")
+                    .query::<i32>(con))
+                .await
+                .unwrap(),
+                3
             );
 
             database

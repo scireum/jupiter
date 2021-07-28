@@ -201,12 +201,14 @@ If all modules are enabled, the following commands are available.
   outputting up to `max_results`rows.
 * `IDB.ISCAN table primary_lang fallback_lang num_skip max_results path1 path2 path3`
   Again, behaves just like `IDB.SCAN` but provides i18n lookup for the given languages.
+* `IDB.LEN table` reports the number of entries in the given table
 * `IDB.SHOW_TABLES` reports all tables and their usage statistics.
 * `IDB.SHOW_SETS` reports all sets and their usage statistics.
 * `IDB.CONTAINS set key1 key2 key3` reports if the given keys are contained
   in the given set. For each key a **1** (contained) or a **0** (not contained) will be reported.
 * `IDB.INDEX_OF set key1 key2 key3` reports the insertion index for each
   of the given keys using one-based indices.
+* `IDB.CARDINALITY set` reports the number of entries in the given set
   
 # Sources
 * The library parts can be found in [jupiter-rs](jupiter-rs)
