@@ -58,6 +58,13 @@ pub struct Query {
     path: Vec<Symbol>,
 }
 
+impl Query {
+    /// Determines if this is a root query (".").
+    pub fn is_root_node_query(&self) -> bool {
+        self.path.is_empty()
+    }
+}
+
 impl Doc {
     /// Creates an entirely empty doc which can be used as a fallback or placeholder.
     pub fn empty() -> Self {

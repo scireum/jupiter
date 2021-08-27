@@ -621,7 +621,12 @@ where
         for row in results {
             response.array(request.parameter_count() as i32 - parameter_index as i32)?;
             for query in &queries {
-                emit_element(query.execute(row), response, &i18n)?;
+                emit_element(
+                    query.execute(row),
+                    response,
+                    &i18n,
+                    query.is_root_node_query(),
+                )?;
             }
         }
     }
@@ -633,6 +638,7 @@ fn emit_element(
     element: Element,
     response: &mut Response,
     i18n: &I18nContext,
+    suppress_i18n: bool,
 ) -> anyhow::Result<()> {
     if let Some(string) = element.as_str() {
         response.bulk(string)?;
@@ -643,10 +649,10 @@ fn emit_element(
     } else if element.is_list() {
         response.array(element.len() as i32)?;
         for child in element.iter() {
-            emit_element(child, response, i18n)?;
+            emit_element(child, response, i18n, false)?;
         }
     } else if element.is_object() {
-        if i18n.primary_lang.is_some() {
+        if !suppress_i18n && i18n.primary_lang.is_some() {
             if !emit_translated(element, i18n.primary_lang.as_ref(), response, i18n)?
                 && !emit_translated(element, i18n.fallback_lang.as_ref(), response, i18n)?
                 && !emit_translated(element, Some(i18n.default_lang), response, i18n)?
@@ -672,7 +678,7 @@ fn emit_translated(
     if let Some(lang) = lang {
         let translated = lang.execute(element);
         if !translated.is_empty() {
-            emit_element(translated, response, i18n)?;
+            emit_element(translated, response, i18n, false)?;
             return Ok(true);
         }
     }
@@ -1051,6 +1057,21 @@ name: Test
             .unwrap();
             assert_eq!(result[0][0].0, "Test");
             assert_eq!(result[0][0].1, "Österreich");
+
+            // Ensure "." works even when having i18n turned on...
+            let result = query_redis_async(|con| {
+                redis::cmd("IDB.ILOOKUP")
+                    .arg("countries")
+                    .arg("de")
+                    .arg("de")
+                    .arg("code")
+                    .arg("A")
+                    .arg(".")
+                    .query::<Vec<Vec<String>>>(con)
+            })
+            .await
+            .unwrap();
+            assert_eq!(result[0][0], "{\"code\":\"A\",\"iso\":{\"three\":\"aut\",\"two\":\"at\"},\"name\":{\"de\":\"Österreich\",\"en\":\"Austria\",\"xx\":\"Test\"}}");
 
             // Ensure searches work....
             let result = query_redis_async(|con| {
