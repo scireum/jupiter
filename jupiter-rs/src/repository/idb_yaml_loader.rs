@@ -18,6 +18,7 @@
 //! indices: ['fields', 'to', 'index']
 //! fulltextIndices: ['fields', 'to', 'search', 'in']
 //! skipUnderscores: false # Determines if keys starting with _ should be ignored.
+//! rowNumber: 'priority' # Specifies an auto-generated field which contains the row-number of each record
 //! ```
 use crate::ig::yaml::list_to_doc;
 use crate::repository::loader::{Loader, LoaderInfo};
@@ -25,6 +26,7 @@ use anyhow::Context;
 use apollo_framework::platform::Platform;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
+use yaml_rust::Yaml;
 
 /// Represents the global loader instance.
 pub struct IdbYamlLoader {
@@ -50,8 +52,19 @@ impl Loader for IdbYamlLoader {
         let data = tokio::fs::read_to_string(loader_info.get_data())
             .await
             .context("Unable to read data file")?;
-        let rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
+        let mut rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
             .context("Cannot parse the given YAML data.")?;
+        let row_number_field = loader_info.get_config()["rowNumber"].as_str().unwrap_or("");
+        if !row_number_field.is_empty() {
+            let mut row_number = 1;
+            let field_name = Yaml::String(row_number_field.to_string());
+            for row in rows.iter_mut() {
+                if let Yaml::Hash(record) = row {
+                    let _ = record.insert(field_name.clone(), Yaml::Integer(row_number));
+                }
+                row_number += 1;
+            }
+        }
         let skip_underscores = loader_info.get_config()["skipUnderscores"]
             .as_bool()
             .unwrap_or(false);

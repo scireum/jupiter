@@ -86,6 +86,8 @@ namespace: 'target namespace to import into'
 table: 'target-table-name'
 indices: ['fields', 'to', 'index']
 fulltextIndices: ['fields', 'to', 'search', 'in']
+skipUnderscores: false # Determines if keys starting with _ should be ignored.
+rowNumber: 'priority' # Specifies an auto-generated field which contains the row-number of each record
 ```
 
 ## Loading InfoGraphDB sets from a YAML file:
