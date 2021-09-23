@@ -134,7 +134,7 @@ impl Doc {
     /// the same query each time).
     ///
     /// Also note that if we encounter an unknown symbol here, we know that the query cannot be
-    /// fullfilled and therefore return an empty query here which always yields and empty
+    /// fulfilled and therefore return an empty query here which always yields and empty
     /// result without any actual work being done.
     pub fn compile(&self, query: impl AsRef<str>) -> Query {
         let query = query.as_ref();
