@@ -345,7 +345,7 @@ async fn loader_changed(
     for infos in loaders.values_mut() {
         for info in infos.iter_mut() {
             if file.path == info.loader_file {
-                info.data_file = Repository::resolve(&data_file).await?;
+                info.data_file = Repository::resolve(data_file).await?;
                 info.config = config.clone();
                 info.namespace = namespace.clone();
 
@@ -377,7 +377,7 @@ async fn loader_changed(
         loader: repository.find_loader(loader)?,
         config: config.clone(),
         loader_file: file.path.clone(),
-        data_file: Repository::resolve(&data_file).await?,
+        data_file: Repository::resolve(data_file).await?,
         enabled,
         namespace,
         last_load: if enabled {

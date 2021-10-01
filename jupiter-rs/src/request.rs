@@ -167,14 +167,14 @@ impl Request {
         }
 
         // Parse the number of arguments...
-        let (mut num_args, range) = match Request::read_int(&data, offset)? {
+        let (mut num_args, range) = match Request::read_int(data, offset)? {
             Some((num_args, range)) => (num_args - 1, range),
             _ => return Ok(None),
         };
         offset = range.next_offset();
 
         // Parse the first parameter as "command"...
-        let command = match Request::read_bulk_string(&data, offset)? {
+        let command = match Request::read_bulk_string(data, offset)? {
             Some(range) => range,
             _ => return Ok(None),
         };
@@ -183,7 +183,7 @@ impl Request {
         // Parse the remaining arguments...
         let mut arguments = Vec::with_capacity(num_args as usize);
         while num_args > 0 {
-            if let Some(range) = Request::read_bulk_string(&data, offset)? {
+            if let Some(range) = Request::read_bulk_string(data, offset)? {
                 arguments.push(range);
                 num_args -= 1;
                 offset = range.next_offset();

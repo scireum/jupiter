@@ -92,7 +92,7 @@ use serde_json::{Map, Value};
 pub fn object_to_doc(object: &Map<String, Value>) -> anyhow::Result<Doc> {
     let doc_builder = DocBuilder::new();
     let mut obj_builder = doc_builder.obj();
-    transform_object(&object, &doc_builder, &mut obj_builder)?;
+    transform_object(object, &doc_builder, &mut obj_builder)?;
 
     Ok(doc_builder.build_object(obj_builder))
 }

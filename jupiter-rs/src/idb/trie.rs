@@ -339,7 +339,7 @@ impl<T> Trie<T> {
         for (ch, child) in &node.branches {
             prefix.push(*ch);
 
-            Trie::scan_node(prefix, &child, callback);
+            Trie::scan_node(prefix, child, callback);
             let _ = prefix.pop();
         }
     }
@@ -369,7 +369,7 @@ impl<T: PartialEq> Trie<T> {
     /// ```
     pub fn insert_unique(&mut self, key: &str, value: T) {
         self.insert_checked(key, value, |new_value, node| {
-            !node.values.contains(&new_value)
+            !node.values.contains(new_value)
         });
     }
 }

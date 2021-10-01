@@ -78,7 +78,7 @@ impl DocBuilder {
     /// provide convenience methods like **put_string**.
     pub fn obj(&self) -> ObjectBuilder {
         ObjectBuilder {
-            doc_builder: &self,
+            doc_builder: self,
             map: SymbolMap::new(),
         }
     }

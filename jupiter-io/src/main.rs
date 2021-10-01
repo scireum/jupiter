@@ -39,6 +39,6 @@ async fn main() {
 
     platform
         .require::<Server<RespPayload>>()
-        .event_loop(&resp_protocol_loop)
+        .event_loop(resp_protocol_loop)
         .await;
 }

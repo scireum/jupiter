@@ -241,7 +241,7 @@ async fn scan_repository_command(
     let base_path = Repository::base_dir().await;
     let updated_files = scan(base_path).await?;
 
-    sync_lists(&updated_files, &files, change_notifier).await;
+    sync_lists(&updated_files, files, change_notifier).await;
 
     Ok(updated_files)
 }
@@ -342,11 +342,7 @@ async fn sync_lists(
     change_notifier: &mut mpsc::Sender<BackgroundEvent>,
 ) {
     for old_file in previous_files {
-        if current_files
-            .iter()
-            .find(|other| &old_file == other)
-            .is_none()
-        {
+        if !current_files.iter().any(|other| old_file == other) {
             log::info!("Deleted file found in repository: {}", old_file.name);
 
             if let Err(error) = change_notifier
