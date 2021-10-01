@@ -11,37 +11,37 @@ categories = ["caching", "database-implementations", "network-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.0.0", features = ["full"] }
-tokio-util = { version = "0.6.0", features = ["compat"] }
-tokio-stream = "0.1.0"
-log = { version = "0.4.11", features = ["max_level_debug", "release_max_level_info"] }
-bytes = "1.0.0"
-simplelog = "0.9.0"
-anyhow = "1.0.36"
+tokio = { version = "1.12.0", features = ["full"] }
+tokio-util = { version = "0.6.8", features = ["compat"] }
+tokio-stream = "0.1.7"
+log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_info"] }
+bytes = "1.1.0"
+simplelog = "0.10.2"
+anyhow = "1.0.44"
 num-traits = "0.2.14"
 num-derive = "0.3.3"
-yaml-rust = "0.4.4"
-quick-xml = { version = "0.20.0", features = ["encoding"] }
-linked-hash-map = "0.5.3"
-encoding_rs = "0.8.26"
-arc-swap = "1.1.0"
+yaml-rust = "0.4.5"
+quick-xml = { version = "0.22.0", features = ["encoding"] }
+linked-hash-map = "0.5.4"
+encoding_rs = "0.8.28"
+arc-swap = "1.4.0"
 lazy_static = "1.4.0"
-regex = "1.4.2"
+regex = "1.5.4"
 memcmp = "0.0.6"
-memchr = "2.3.4"
+memchr = "2.4.1"
 num_cpus = "1.13.0"
 chrono = "0.4.19"
 jemalloc-ctl = "0.3.3"
-serde_json = "1.0.60"
+serde_json = "1.0.68"
 mock_instant = "0.2.1"
-hyper = { version = "0.14.2", features = ["full"] }
+hyper = { version = "0.14.13", features = ["full"] }
 hyper-tls = "0.5.0"
-futures = "0.3.8"
-async-trait = "0.1.42"
+futures = "0.3.17"
+async-trait = "0.1.51"
 fnv = "1.0.7"
-csv = "1.1.5"
-apollo-framework = "0.3.0"
-itertools = "0.9.0"
+csv = "1.1.6"
+apollo-framework = "1.0.0"
+itertools = "0.10.1"
 
 [dev-dependencies]
-redis = "0.18.0"
+redis = "0.21.2"
