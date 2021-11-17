@@ -9,6 +9,7 @@ use mock_instant::Instant;
 #[cfg(not(test))]
 use std::time::Instant;
 
+use itertools::Itertools;
 use linked_hash_map::LinkedHashMap;
 use std::time::Duration;
 
@@ -94,6 +95,7 @@ struct Entry<V: ByteSize> {
     hard_ttl: Instant,
     next_refresh_request: Instant,
     value: V,
+    secondary_keys: Option<Vec<String>>,
 }
 
 impl<V: ByteSize> LruCache<V> {
@@ -167,12 +169,50 @@ impl<V: ByteSize> LruCache<V> {
     /// assert_eq!(lru.get("Foo").unwrap(), &"Bar".to_owned());
     ///```    
     pub fn put(&mut self, key: String, value: V) -> anyhow::Result<()> {
+        self.put_with_secondaries(key, value, None)
+    }
+
+    /// Stores the given value for the given key.
+    ///
+    /// # Errors
+    /// Fails if the given entry is larger than **max_memory** (the max total size of the cache).
+    ///
+    /// # Examples
+    /// ```
+    /// # use jupiter::lru::LruCache;
+    /// # use std::time::Duration;
+    ///
+    /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
+    /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
+    /// // Stale entries are refreshed at most every 2s.
+    /// let mut lru = LruCache::new(128,
+    ///                             1024,
+    ///                             Duration::from_secs(60),
+    ///                             Duration::from_secs(60 * 60),
+    ///                             Duration::from_secs(2),
+    ///         );
+    ///
+    /// lru.put("Foo".to_owned(), "Bar".to_owned());
+    /// assert_eq!(lru.get("Foo").unwrap(), &"Bar".to_owned());
+    ///```    
+    pub fn put_with_secondaries(
+        &mut self,
+        key: String,
+        value: V,
+        secondary_keys: Option<Vec<String>>,
+    ) -> anyhow::Result<()> {
+        let mut mem_size = key.len() + value.allocated_size();
+        if let Some(secondary_keys) = &secondary_keys {
+            mem_size += secondary_keys.iter().map(String::len).sum::<usize>();
+        }
+
         let entry = Entry {
-            mem_size: key.len() + value.allocated_size(),
+            mem_size,
             soft_ttl: Instant::now() + self.soft_ttl,
             hard_ttl: Instant::now() + self.hard_ttl,
             next_refresh_request: Instant::now(),
             value,
+            secondary_keys,
         };
 
         if entry.mem_size > self.max_memory {
@@ -364,6 +404,60 @@ impl<V: ByteSize> LruCache<V> {
         if let Some(entry) = self.map.remove(key) {
             self.num_entries -= 1;
             self.allocated_memory -= entry.mem_size;
+        }
+    }
+
+    /// Removes the entry for the given secondary key if present.
+    ///
+    /// # Examples
+    /// ```
+    /// # use jupiter::lru::LruCache;
+    /// # use std::time::Duration;
+    ///
+    /// // Specifies a cache which can store up to 128 entries which can allocated up to 1024 bytes of
+    /// // memory. Each entry will be considered stale after 1m and be completely evicted after 1h.
+    /// // Stale entries are refreshed at most every 2s.
+    /// let mut lru = LruCache::new(128,
+    ///                             1024,
+    ///                             Duration::from_secs(60),
+    ///                             Duration::from_secs(60 * 60),
+    ///                             Duration::from_secs(2),
+    ///         );
+    ///
+    /// // After inserting a value...
+    /// lru.put_with_secondaries("A".to_owned(), "Bar1".to_owned(), Some(vec![ "A".to_owned(), "B".to_owned() ]));
+    /// lru.put_with_secondaries("Foo".to_owned(), "Bar2".to_owned(), Some(vec![ "A".to_owned(), "B".to_owned() ]));
+    /// lru.put_with_secondaries("Bar".to_owned(), "Bar3".to_owned(), Some(vec![ "B".to_owned() ]));
+    /// // ..it can be retrieved.
+    /// assert_eq!(lru.get("A").unwrap(), &"Bar1".to_owned());
+    /// assert_eq!(lru.get("Foo").unwrap(), &"Bar2".to_owned());
+    ///
+    /// // Removing by secondary key "A"...
+    /// lru.remove_by_secondary("A");
+    /// assert_eq!(lru.len(), 1);
+    /// // ...only deletes the first two (with the appropriate key)...
+    /// assert_eq!(lru.get("A"), None);
+    /// assert_eq!(lru.get("Foo"), None);
+    /// // ...but not the 3rd with another secondary key...
+    /// assert_eq!(lru.get("Bar").unwrap(), &"Bar3".to_owned());
+    ///
+    /// ```
+    pub fn remove_by_secondary(&mut self, secondary_key: &str) {
+        let mut entries_to_remove = Vec::default();
+        for (key, entry) in self.map.iter() {
+            if let Some(secondary_keys) = &entry.secondary_keys {
+                if secondary_keys
+                    .iter()
+                    .map(String::as_str)
+                    .contains(&secondary_key)
+                {
+                    entries_to_remove.push(key.clone());
+                }
+            }
+        }
+
+        for key in entries_to_remove {
+            self.remove(&key);
         }
     }
 
@@ -882,7 +976,8 @@ mod tests {
         // Write 3 values into the cache...
         lru.put("A".to_owned(), "A".to_owned()).unwrap();
         lru.put("B".to_owned(), "B".to_owned()).unwrap();
-        lru.put("C".to_owned(), "C".to_owned()).unwrap();
+        lru.put_with_secondaries("C".to_owned(), "C".to_owned(), Some(vec!["D".to_owned()]))
+            .unwrap();
 
         // Perform 4 reads, of which 3 hit a cache entry...
         assert_eq!(lru.get("A").is_some(), true);
@@ -906,8 +1001,8 @@ mod tests {
         assert_eq!(lru.reads(), 7);
         assert_eq!(lru.write_read_ratio().round() as i32, 30);
 
-        // We know our keys and values consume 6 bytes...
-        assert_eq!(lru.allocated_memory(), 6);
+        // We know our keys and values consume 7 bytes...
+        assert_eq!(lru.allocated_memory(), 7);
 
         // We cannot compute the total allocated memory correctly, but we can at least perform
         // a sanity check here..
@@ -917,6 +1012,6 @@ mod tests {
         assert_eq!(lru.utilization().round() as i32, 75);
 
         // The cache contains 6 bytes of data and has a max memory of 10 -> 60% memory utilization..
-        assert_eq!(lru.memory_utilization().round() as i32, 60);
+        assert_eq!(lru.memory_utilization().round() as i32, 70);
     }
 }

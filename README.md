@@ -12,7 +12,8 @@ Next to providing a framework for custom services, Jupiter also provides some co
 
 * **LRU-Cache**: An size constraint cache with an intelligent refresh strategy which can be used
   to maintain low latency response times by employing a coordinated asynchronous cache update
-  pattern (see `LRU.XGET`).
+  pattern (see `LRU.XGET`). It also supports cache-coherence (flushes) by secondary keys 
+  (see `LRU.PUTS` / `LRU.REMOVES`).
 * **InfoGraphDB**: Provides a fast and flexible static database for master data. Using the
   **Repository** this can be used to load master data from e.g. an S3 Bucket or a git repository
   into fast lookup tables or code sets. These permit to perform all kinds of lookups, reverse-lookups,
@@ -135,23 +136,29 @@ If all modules are enabled, the following commands are available.
 ## LRU Cache
 * `LRU.PUT cache key value` will store the given value for the given key in the
   given cache.
+* `LRU.PUTS cache key value secondary_key1 .. secondary_keyN` will store the
+  given value for the given key in the given cache. Note that the value can only be queried
+  using the given key, but it cann be purged from the cache using one of the given secondary
+  key using `LRU.REMOVES`.
 * `LRU.GET cache key` will perform a lookup for the given key in the given cache
-   and return the value being stored or an empty string if no value is present.
+  and return the value being stored or an empty string if no value is present.
 * `LRU.XGET cache key` will behave just like **LRU.GET**. However, its output is
-   a bit more elaborate. It will always respond with three values: ACTIVE, REFRESH, VALUE. If
-   no value was found for the given key, ACTIVE and REFRESH will be 0 and VALUE will be an empty
-   string. If a non-stale entry way found, ACTIVE is 1, REFRESH is 0 an VALUE will be the value
-   associated with the key. Now the interesting part: If a stale entry (older than *soft_ttl* but
-   younger than *hard_ttl*) was found, ACTIVE will be 0. For the first client to request this
-   entry, REFRESH will be 1 and the VALUE will be the stale value associated with the key. For
-   all subsequent invocations of this command, REFRESH will be 0 until either the entry was
-   updated (by calling **LRU.PUT**) or if the *refresh_interval* has elapsed since the first
-   invocation. Using this approach one can build "lazy" caches, which refresh on demand, without
-   slowing the requesting client down (stale content can be delivered quickly, if the application
-   accepts doing so) and also without overloading the system, as only one client will typically
-   try to obtain a fresh value instead of all clients at once.
+  a bit more elaborate. It will always respond with three values: ACTIVE, REFRESH, VALUE. If
+  no value was found for the given key, ACTIVE and REFRESH will be 0 and VALUE will be an empty
+  string. If a non-stale entry way found, ACTIVE is 1, REFRESH is 0 an VALUE will be the value
+  associated with the key. Now the interesting part: If a stale entry (older than *soft_ttl* but
+  younger than *hard_ttl*) was found, ACTIVE will be 0. For the first client to request this
+  entry, REFRESH will be 1 and the VALUE will be the stale value associated with the key. For
+  all subsequent invocations of this command, REFRESH will be 0 until either the entry was
+  updated (by calling **LRU.PUT**) or if the *refresh_interval* has elapsed since the first
+  invocation. Using this approach one can build "lazy" caches, which refresh on demand, without
+  slowing the requesting client down (stale content can be delivered quickly, if the application
+  accepts doing so) and also without overloading the system, as only one client will typically
+  try to obtain a fresh value instead of all clients at once.
 * `LRU.REMOVE cache key` will remove the value associated with the given key.
-   Note that the value will be immediately gone without respecting any TTL.
+  Note that the value will be immediately gone without respecting any TTL.
+* `LRU.REMOVES cache secondary_key` will remove all values which were associated with the given secondary key 
+  using `LRU.PUTS`.
 * `LRU.FLUSH cache` will wipe all contents of the given cache.
 * `LRU.STATS` will provide an overview of all active caches. 
   `LRU.STATS cache` will provide detailed metrics about the given cache.

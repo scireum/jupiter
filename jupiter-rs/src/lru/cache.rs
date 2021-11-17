@@ -35,6 +35,10 @@
 //! The actor defines the following commands:
 //! * **LRU.PUT**: `LRU.PUT cache key value` will store the given value for the given key in the
 //!   given cache.
+//! * **LRU.PUTS**: `LRU.PUTS cache key value secondary_key1 .. secondary_keyN` will store the
+//!   given value for the given key in the given cache. Note that the value can only be queried
+//!   using the given key, but it cann be purged from the cache using one of the given secondary
+//!   key using `LRU.REMOVES`.
 //! * **LRU.GET**: `LRU.GET cache key` will perform a lookup for the given key in the given cache
 //!   and return the value being stored or an empty string if no value is present.
 //! * **LRU.XGET**: `LRU.XGET cache key` will behave just like **LRU.GET**. However, its output is
@@ -51,6 +55,9 @@
 //!   accepts doing so) and also without overloading the system, as only one client will typically
 //!   try to obtain a fresh value instead of all clients at once.
 //! * **LRU.REMOVE**: `LRU.REMOVE cache key` will remove the value associated with the given key.
+//!   Note that the value will be immediately gone without respecting any TTL.
+//! * **LRU.REMOVES**: `LRU.REMOVES cache secondary_key` will remove all values which were
+//!    associated with the given secondary key using `LRU.PUTS`.
 //!   Note that the value will be immediately gone without respecting any TTL.
 //! * **LRU.FLUSH**: `LRU.FLUSH cache` will wipe all contents of the given cache.
 //! * **LRU.STATS**: `LRU.STATS` will provide an overview of all active caches. `LRU.STATS cache`
@@ -79,9 +86,11 @@ use yaml_rust::Yaml;
 #[derive(FromPrimitive)]
 enum Commands {
     Put,
+    Puts,
     Get,
     ExtendedGet,
     Remove,
+    Removes,
     Flush,
     Stats,
     Keys,
@@ -100,8 +109,10 @@ pub fn install(platform: Arc<Platform>) {
 
     let commands = platform.require::<CommandDictionary>();
     commands.register_command("LRU.PUT", queue.clone(), Commands::Put as usize);
+    commands.register_command("LRU.PUTS", queue.clone(), Commands::Puts as usize);
     commands.register_command("LRU.GET", queue.clone(), Commands::Get as usize);
     commands.register_command("LRU.REMOVE", queue.clone(), Commands::Remove as usize);
+    commands.register_command("LRU.REMOVES", queue.clone(), Commands::Removes as usize);
     commands.register_command("LRU.XGET", queue.clone(), Commands::ExtendedGet as usize);
     commands.register_command("LRU.FLUSH", queue.clone(), Commands::Flush as usize);
     commands.register_command("LRU.STATS", queue.clone(), Commands::Stats as usize);
@@ -126,9 +137,11 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                     if let Some(mut call) = msg {
                          match Commands::from_usize(call.token) {
                             Some(Commands::Put) => put_command(&mut call, &mut caches).complete(call),
+                            Some(Commands::Puts) => puts_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Get) => get_command(&mut call, &mut caches).complete(call),
                             Some(Commands::ExtendedGet) => extended_get_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Remove) => remove_command(&mut call, &mut caches).complete(call),
+                            Some(Commands::Removes) => removes_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Flush) => flush_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Stats) => stats_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Keys) => keys_command(&mut call, &mut caches).complete(call),
@@ -370,6 +383,25 @@ fn put_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> Co
     Ok(())
 }
 
+/// Implements the LRU.PUTS command.
+fn puts_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> CommandResult {
+    let cache = get_cache(call.request.str_parameter(0)?, caches)?;
+
+    let mut secondary_keys = Vec::with_capacity(call.request.parameter_count() - 3);
+    for index in 3..call.request.parameter_count() {
+        secondary_keys.push(call.request.str_parameter(index)?.to_owned());
+    }
+
+    cache.put_with_secondaries(
+        call.request.str_parameter(1)?.to_owned(),
+        call.request.str_parameter(2)?.to_owned(),
+        Some(secondary_keys),
+    )?;
+
+    call.response.ok()?;
+    Ok(())
+}
+
 /// Implements the LRU.GET command.
 fn get_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> CommandResult {
     let cache = get_cache(call.request.str_parameter(0)?, caches)?;
@@ -409,6 +441,15 @@ fn extended_get_command(
 fn remove_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> CommandResult {
     let cache = get_cache(call.request.str_parameter(0)?, caches)?;
     cache.remove(call.request.str_parameter(1)?);
+    call.response.ok()?;
+
+    Ok(())
+}
+
+/// Implements the LRU.REMOVES command.
+fn removes_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> CommandResult {
+    let cache = get_cache(call.request.str_parameter(0)?, caches)?;
+    cache.remove_by_secondary(call.request.str_parameter(1)?);
     call.response.ok()?;
 
     Ok(())
@@ -537,7 +578,7 @@ fn keys_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> C
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::commands::CommandDictionary;
+    use crate::commands::{CommandDictionary, Dispatcher};
     use crate::request::Request;
     use apollo_framework::config::Config;
     use mock_instant::MockClock;
@@ -576,160 +617,234 @@ mod tests {
 
             // PUT an value into the cache...
             let mut dispatcher = platform.require::<CommandDictionary>().dispatcher();
-            let result = dispatcher
-                .invoke(
-                    Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
-                    None,
-                )
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
 
-            // ...and ensure we can read it back
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "$3\r\nbar\r\n");
+            // Test PUT, GET, KEYS and REMOVE...
+            perform_put_get_keys_remove(&mut dispatcher).await;
 
-            // ...and ensure we see the key without filtering...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.KEYS", "test"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*1\r\n$3\r\nfoo\r\n"
-            );
-            // ...and with filtering...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.KEYS", "test", "fo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*1\r\n$3\r\nfoo\r\n"
-            );
-            // ..and ensure that an "invalid" filter won't match our key.
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.KEYS", "test", "xx"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "*0\r\n");
+            // Test PUTS, and REMOVES...
+            perform_puts_removes(&mut dispatcher).await;
 
-            // REMOVE the value...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.REMOVE", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
+            // Test XGET...
+            perform_put_get_xget(&mut dispatcher).await;
 
-            // ...and ensure it's gone.
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
+            // Test Flush
+            perform_put_flush(&mut dispatcher).await;
 
-            // PUT a value into the cache again...
-            let result = dispatcher
-                .invoke(
-                    Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
-                    None,
-                )
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
-
-            // Await longer than soft_ttl...
-            MockClock::advance(Duration::from_secs(16 * 60));
-
-            // ...therefore ensure that GET will no longer return the value.
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
-
-            // but XGET will and also ask for a refresh...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*3\r\n:0\r\n:1\r\n$3\r\nbar\r\n"
-            );
-
-            // after that, XGET will still return the value but no longer ask for a refresh...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*3\r\n:1\r\n:0\r\n$3\r\nbar\r\n"
-            );
-
-            // one the refresh period has passed, XGET will once again ask us to refresh the stale
-            // value...
-            MockClock::advance(Duration::from_secs(12));
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*3\r\n:0\r\n:1\r\n$3\r\nbar\r\n"
-            );
-
-            // After waiting for hard_ttl to be elapsed, even XGET will no longer return the value..
-            MockClock::advance(Duration::from_secs(16 * 60));
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(
-                std::str::from_utf8(&result[..]).unwrap(),
-                "*3\r\n:0\r\n:0\r\n+\r\n"
-            );
-
-            // PUT an value into the cache again...
-            let _ = platform.require::<CommandDictionary>().dispatcher();
-            let _ = dispatcher
-                .invoke(
-                    Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
-                    None,
-                )
-                .await
-                .unwrap();
-
-            // FLUSH it...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.FLUSH", "test"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
-
-            // ...and ensure it's gone.
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
-
-            // Now let's invoke LRU.STATS - being a diagnostic command, we do not test
-            // the actual result, but at least ensure a positive response...
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.STATS"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[0..1]).unwrap(), "$");
-            let result = dispatcher
-                .invoke(Request::example(vec!["LRU.STATS", "test"]), None)
-                .await
-                .unwrap();
-            assert_eq!(std::str::from_utf8(&result[0..1]).unwrap(), "$");
+            // Test STATS
+            perform_stats(dispatcher).await;
         });
+    }
+
+    async fn perform_stats(mut dispatcher: Dispatcher) {
+        // Now let's invoke LRU.STATS - being a diagnostic command, we do not test
+        // the actual result, but at least ensure a positive response...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.STATS"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[0..1]).unwrap(), "$");
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.STATS", "test"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[0..1]).unwrap(), "$");
+    }
+
+    async fn perform_put_flush(dispatcher: &mut Dispatcher) {
+        let _ = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
+                None,
+            )
+            .await
+            .unwrap();
+
+        // FLUSH it...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.FLUSH", "test"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
+
+        // ...and ensure it's gone.
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
+    }
+
+    async fn perform_put_get_xget(dispatcher: &mut Dispatcher) {
+        let result = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
+
+        // Await longer than soft_ttl...
+        MockClock::advance(Duration::from_secs(16 * 60));
+
+        // ...therefore ensure that GET will no longer return the value.
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
+
+        // but XGET will and also ask for a refresh...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*3\r\n:0\r\n:1\r\n$3\r\nbar\r\n"
+        );
+
+        // after that, XGET will still return the value but no longer ask for a refresh...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*3\r\n:1\r\n:0\r\n$3\r\nbar\r\n"
+        );
+
+        // one the refresh period has passed, XGET will once again ask us to refresh the stale
+        // value...
+        MockClock::advance(Duration::from_secs(12));
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*3\r\n:0\r\n:1\r\n$3\r\nbar\r\n"
+        );
+
+        // After waiting for hard_ttl to be elapsed, even XGET will no longer return the value..
+        MockClock::advance(Duration::from_secs(16 * 60));
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.XGET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*3\r\n:0\r\n:0\r\n+\r\n"
+        );
+    }
+
+    async fn perform_put_get_keys_remove(dispatcher: &mut Dispatcher) {
+        let result = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUT", "test", "foo", "bar"]),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
+
+        // ...and ensure we can read it back
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "$3\r\nbar\r\n");
+
+        // ...and ensure we see the key without filtering...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.KEYS", "test"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*1\r\n$3\r\nfoo\r\n"
+        );
+        // ...and with filtering...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.KEYS", "test", "fo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*1\r\n$3\r\nfoo\r\n"
+        );
+        // ..and ensure that an "invalid" filter won't match our key.
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.KEYS", "test", "xx"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "*0\r\n");
+
+        // REMOVE the value...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.REMOVE", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+OK\r\n");
+
+        // ...and ensure it's gone.
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.GET", "test", "foo"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
+    }
+
+    async fn perform_puts_removes(dispatcher: &mut Dispatcher) {
+        let _ = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUTS", "test", "foo", "bar", "A"]),
+                None,
+            )
+            .await
+            .unwrap();
+        let _ = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUTS", "test", "foo1", "bar1", "A", "B"]),
+                None,
+            )
+            .await
+            .unwrap();
+        let _ = dispatcher
+            .invoke(
+                Request::example(vec!["LRU.PUTS", "test", "foo2", "bar2", "B"]),
+                None,
+            )
+            .await
+            .unwrap();
+
+        // Flush the first two entries by removing secondary key "A"...
+        let _ = dispatcher
+            .invoke(Request::example(vec!["LRU.REMOVES", "test", "A"]), None)
+            .await
+            .unwrap();
+
+        // Ensure that the proper keys are gone and only foo2 survives...
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.KEYS", "test"]), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            std::str::from_utf8(&result[..]).unwrap(),
+            "*1\r\n$4\r\nfoo2\r\n"
+        );
+
+        // Flush by secondary key B...
+        let _ = dispatcher
+            .invoke(Request::example(vec!["LRU.REMOVES", "test", "B"]), None)
+            .await
+            .unwrap();
+
+        // ...and ensure the last entry is gone.
+        let result = dispatcher
+            .invoke(Request::example(vec!["LRU.GET", "test", "foo2"]), None)
+            .await
+            .unwrap();
+        assert_eq!(std::str::from_utf8(&result[..]).unwrap(), "+\r\n");
     }
 }
