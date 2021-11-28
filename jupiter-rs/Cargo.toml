@@ -31,7 +31,6 @@ memcmp = "0.0.6"
 memchr = "2.4.1"
 num_cpus = "1.13.0"
 chrono = "0.4.19"
-jemalloc-ctl = "0.3.3"
 serde_json = "1.0.68"
 mock_instant = "0.2.1"
 hyper = { version = "0.14.13", features = ["full"] }
@@ -40,8 +39,11 @@ futures = "0.3.17"
 async-trait = "0.1.51"
 fnv = "1.0.7"
 csv = "1.1.6"
-apollo-framework = "1.0.0"
+apollo-framework = "1.0.1"
 itertools = "0.10.1"
+
+[target.'cfg(not(target_env = "msvc"))'.dependencies]
+jemalloc-ctl = "0.3.3"
 
 [dev-dependencies]
 redis = "0.21.2"
