@@ -314,6 +314,7 @@ mod tests {
                     .is_some(),
                 true
             );
+            #[cfg(not(windows))]
             assert_eq!(
                 query_redis_async(|con| redis::cmd("SYS.MEM").query::<String>(con))
                     .await
