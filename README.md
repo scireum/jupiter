@@ -1,12 +1,15 @@
 ![JUPITER](https://raw.githubusercontent.com/scireum/jupiter/master/docs/jupiter.png)
 
-**Jupiter** is a framework for wrapping **compute** or **memory intense** components to
-provide them as **high throughput** and **ultra low latency** services to
-applications built on managed runtimes like **node.js**, **Java**, **Ruby**.
+**Jupiter** is a framework for wrapping **compute** or **memory intense** components for
+providing them as **high throughput** and **ultra low latency** services to
+applications built on managed runtimes like **node.js**, **Java**, **Ruby**. Jupiter uses the
+**RESP** protocol used by **Redis** to maintain a low overhead when communicating with the
+host application.
 
 We at [scireum](https://www.scireum.de) use **Jupiter** in conjunction with our open source
 Java framework [SIRIUS](https://github.com/scireum/sirius-kernel) to build web based
-applications.
+applications. [sirius-biz](https://github.com/scireum/sirius-biz/tree/develop/src/main/java/sirius/biz/jupiter)
+provides a bunch of tooling to connect a Java application to Jupiter and also to maintain and monitor operations.
 
 Next to providing a framework for custom services, Jupiter also provides some common modules:
 
@@ -21,9 +24,9 @@ Next to providing a framework for custom services, Jupiter also provides some co
   thousands of rows / structured documents).
 * **Repository**: The repository is used to fetch files from various sources and invoking
   appropriate loaders so that the data can be used (e.g. as IDB table or set).
-  More infos on loaders: [repository](jupiter-rs/src/repository)
+  More info on loaders: [repository](jupiter-rs/src/repository)
 
-More infos and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
+More info and a detailed description can be found in the [Documentation](https://docs.rs/jupiter).
 
 # Deployment
 
@@ -33,7 +36,7 @@ use *SIGHUP* to detect a shutdown request.
 Although, Jupiter is intended to be used as library to build custom services, a standalone
 docker image is provided under **Jupiter IO** - IO as in the moon of jupiter, not I/O operations :).
 
-**Jupiter IO** has all modules (as listed above) enabled. Therefore you can have a go by calling:
+**Jupiter IO** has all modules (as listed above) enabled. Therefore, you can have a go by calling:
 
 ```
 > docker run -p 2410:2410 scireum/jupiter-io:latest &
@@ -107,7 +110,7 @@ If all modules are enabled, the following commands are available.
 * `SYS.COMMANDS` lists all available commands.
 * `SYS.CONNECTIONS` lists all active client connections.
 * `SYS.KILL` terminates the connection to the client with the given ip.
-* `SYS.MEM` reports the current memory usage.
+* `SYS.MEM` reports the current memory usage. (Only available on platforms supporting `jemalloc`).
 
 ## Repository
 * `REPO.SCAN` re-scans the local repository contents on the local disk. This
@@ -120,7 +123,7 @@ If all modules are enabled, the following commands are available.
 * `REPO.FETCH_FORCED file url` also fetches the given file, but doesn't
   perform any "last modified" checks as `REPO.FETCH` would.
 * `REPO.LIST` lists all files in the repository. Note that this will yield a
-  more or less human readable output where as `REPO.LIST raw` will return an array with
+  more or less human-readable output whereas `REPO.LIST raw` will return an array with
   provides a child array per file containing **filename**, **filesize**, **last modified**.
 * `REPO.DELETE file` deletes the given file from the repository.
 * `REPO.INC_EPOCH` immediately increments the epoch counter of the foreground actor and schedules
@@ -172,8 +175,8 @@ If all modules are enabled, the following commands are available.
   extracted and returned. If no path is given, the number of matches is returned. If multiple
   documents match, only the first one is returned. Note that if a path matches an inner object
   (which is especially true for "."), the result will be wrapped as JSON.
-  Note that `IDB.LOOKUP` is **case sensitive** by default. However, if a fulltext index is placed on
-  the field being queried, a case insensitive lookup can be performed if the given filter_value
+  Note that `IDB.LOOKUP` is **case-sensitive** by default. However, if a fulltext index is placed on
+  the field being queried, a case-insensitive lookup can be performed if the given filter_value
   is already lowercase. This might be used e.g. for reverse lookups to find a code for a given
   text in a certain (or any) language. See [repository](jupiter-rs/src/repository) for a description
   of loaders which ultimately define the tables in IDB and their indices.
