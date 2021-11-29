@@ -19,9 +19,9 @@ checksum = "61604a8f862e1d5c3229fdd78f8b02c68dcf73a4c4b05fd636d12240aaa242c1"
 
 [[package]]
 name = "apollo-framework"
-version = "1.0.1"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4a4d59b72bcc0256a8a62be78757c2913bd05baff1eb6eb6d61baee263b5c58"
+checksum = "6c7c6a4f3ef23eead0b6dcaccbf78fa3571c339dd68a1b40f3c40102b66d85fc"
 dependencies = [
  "anyhow",
  "arc-swap",

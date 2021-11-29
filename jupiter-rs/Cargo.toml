@@ -2,7 +2,7 @@
 name = "jupiter"
 version = "0.0.1"
 authors = ["scireum GmbH <info@scireum.de>"]
-edition = "2018"
+edition = "2021"
 license = "MIT"
 description = "Jupiter is a library for providing high-throughput ultra low latency services via the RESP protocol as defined by Redis."
 readme = "../README.md"
@@ -39,7 +39,7 @@ futures = "0.3.17"
 async-trait = "0.1.51"
 fnv = "1.0.7"
 csv = "1.1.6"
-apollo-framework = "1.0.1"
+apollo-framework = "1.0.2"
 itertools = "0.10.1"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]
