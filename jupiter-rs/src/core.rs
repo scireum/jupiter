@@ -214,8 +214,18 @@ fn mem_command(call: &mut Call) -> CommandResult {
         call.response.number(resident as i64)?;
     } else {
         let mut result = "Use 'SYS.MEM raw' to obtain the raw values.\n\n".to_owned();
-        result += format!("{:20} {:>10}\n", "Used Memory:", apollo_framework::fmt::format_size(allocated)).as_str();
-        result += format!("{:20} {:>10}\n", "Allocated Memory:", apollo_framework::fmt::format_size(resident)).as_str();
+        result += format!(
+            "{:20} {:>10}\n",
+            "Used Memory:",
+            apollo_framework::fmt::format_size(allocated)
+        )
+        .as_str();
+        result += format!(
+            "{:20} {:>10}\n",
+            "Allocated Memory:",
+            apollo_framework::fmt::format_size(resident)
+        )
+        .as_str();
 
         call.response.bulk(result)?;
     }
