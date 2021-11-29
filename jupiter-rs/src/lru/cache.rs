@@ -422,13 +422,12 @@ fn extended_get_command(
 ) -> CommandResult {
     let cache = get_cache(call.request.str_parameter(0)?, caches)?;
 
+    call.response.array(3)?;
     if let Some((alive, refresh, value)) = cache.extended_get(call.request.str_parameter(1)?) {
-        call.response.array(3)?;
         call.response.boolean(alive)?;
         call.response.boolean(refresh)?;
         call.response.bulk(value)?;
     } else {
-        call.response.array(3)?;
         call.response.boolean(false)?;
         call.response.boolean(false)?;
         call.response.empty_string()?;
