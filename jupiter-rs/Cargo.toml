@@ -42,8 +42,5 @@ csv = "1.1.6"
 apollo-framework = "1.0.2"
 itertools = "0.10.1"
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemalloc-ctl = "0.3.3"
-
 [dev-dependencies]
 redis = "0.21.2"
