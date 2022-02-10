@@ -29,7 +29,7 @@ use std::sync::Arc;
 
 /// Enumerates the commands supported by this facility.
 #[derive(FromPrimitive)]
-enum Commands {
+enum CoreCommands {
     Commands,
     Connections,
     Kill,
@@ -46,21 +46,25 @@ enum Commands {
 pub fn install(platform: Arc<Platform>, version_info: String, revision_info: String) {
     if let Some(commands) = platform.find::<CommandDictionary>() {
         let queue = actor(platform.clone(), version_info, revision_info);
-        commands.register_command("SYS.COMMANDS", queue.clone(), Commands::Commands as usize);
+        commands.register_command(
+            "SYS.COMMANDS",
+            queue.clone(),
+            CoreCommands::Commands as usize,
+        );
         commands.register_command(
             "SYS.CONNECTIONS",
             queue.clone(),
-            Commands::Connections as usize,
+            CoreCommands::Connections as usize,
         );
-        commands.register_command("SYS.KILL", queue.clone(), Commands::Kill as usize);
-        commands.register_command("SYS.VERSION", queue.clone(), Commands::Version as usize);
+        commands.register_command("SYS.KILL", queue.clone(), CoreCommands::Kill as usize);
+        commands.register_command("SYS.VERSION", queue.clone(), CoreCommands::Version as usize);
         commands.register_command(
             "SYS.SET_CONFIG",
             queue.clone(),
-            Commands::SetConfig as usize,
+            CoreCommands::SetConfig as usize,
         );
         #[cfg(debug_assertions)]
-        commands.register_command("SYS.PANIC", queue, Commands::Panic as usize);
+        commands.register_command("SYS.PANIC", queue, CoreCommands::Panic as usize);
     }
 }
 
@@ -81,24 +85,24 @@ fn actor(
 
         loop {
             match endpoint.recv().await {
-                Some(mut call) => match Commands::from_usize(call.token) {
-                    Some(Commands::Commands) => {
+                Some(mut call) => match CoreCommands::from_usize(call.token) {
+                    Some(CoreCommands::Commands) => {
                         commands_command(&mut call, &commands).complete(call)
                     }
-                    Some(Commands::Connections) => {
+                    Some(CoreCommands::Connections) => {
                         connections_command(&mut call, &server).complete(call)
                     }
-                    Some(Commands::Kill) => kill_command(&mut call, &server).complete(call),
-                    Some(Commands::SetConfig) => {
+                    Some(CoreCommands::Kill) => kill_command(&mut call, &server).complete(call),
+                    Some(CoreCommands::SetConfig) => {
                         set_config_command(&mut call, &config).await.complete(call)
                     }
-                    Some(Commands::Version) => {
+                    Some(CoreCommands::Version) => {
                         version_command(&mut call, version_info.as_str(), revision_info.as_str())
                             .complete(call)
                     }
 
                     #[cfg(debug_assertions)]
-                    Some(Commands::Panic) => panic_command(&mut call).complete(call),
+                    Some(CoreCommands::Panic) => panic_command(&mut call).complete(call),
                     _ => call.handle_unknown_token(),
                 },
                 _ => return,
@@ -271,42 +275,36 @@ mod tests {
             .await;
 
             // Invoke some diagnostics...
-            assert_eq!(
+            assert!(
                 query_redis_async(|con| redis::cmd("SYS.COMMANDS").query::<String>(con))
                     .await
-                    .is_some(),
-                true
+                    .is_some()
             );
-            assert_eq!(
+            assert!(
                 query_redis_async(|con| redis::cmd("SYS.CONNECTIONS").query::<String>(con))
                     .await
-                    .is_some(),
-                true
+                    .is_some()
             );
 
-            assert_eq!(
-                query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
-                    .arg(
-                        "
+            assert!(query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
+                .arg(
+                    "
                         server:
                             port: 1503
                         "
-                    )
-                    .query::<String>(con))
-                .await
-                .is_some(),
-                true
-            );
+                )
+                .query::<String>(con))
+            .await
+            .is_some());
 
             // try to deleted the test-config so that it doesn't interfere with other tests...
             let _ = std::fs::remove_file("settings.yml");
 
             // KILL requires at least one parameter...
-            assert_eq!(
+            assert!(
                 query_redis_async(|con| redis::cmd("SYS.KILL").query::<String>(con))
                     .await
-                    .is_none(),
-                true
+                    .is_none()
             );
 
             platform.terminate();

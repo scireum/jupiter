@@ -312,7 +312,7 @@ impl<B: BufRead> Element<'_, B> {
                         pending_close: false,
                         handle,
                         buffer_manager: self.buffer_manager,
-                        reader: &mut self.reader,
+                        reader: self.reader,
                         data: unsafe {
                             // See PullReader::root() for an explanation why this is needed and
                             // why we think that this is safe code :-P
