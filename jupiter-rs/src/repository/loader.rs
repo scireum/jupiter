@@ -350,6 +350,7 @@ async fn loader_changed(
                 info.namespace = namespace.clone();
 
                 if info.needs_reload().await? {
+                    let was_enabled = info.enabled;
                     info.enabled = namespaces.contains(&namespace);
                     *info.last_error.lock().unwrap() = "".to_string();
 
@@ -358,7 +359,7 @@ async fn loader_changed(
                         background_task_sender
                             .send(BackgroundCommand::ExecuteLoaderForChange(info.clone()))
                             .await?;
-                    } else {
+                    } else if was_enabled {
                         info.last_load = None;
                         background_task_sender
                             .send(BackgroundCommand::ExecuteLoaderForDelete(info.clone()))
