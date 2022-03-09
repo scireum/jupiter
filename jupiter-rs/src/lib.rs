@@ -75,7 +75,7 @@
 //! features an **LRU cache** and an **InfoGraphDB** instance can also be directly used via docker:
 //! [Docker image](https://hub.docker.com/repository/docker/scireum/jupiter-io).
 //!
-//! Further infos can be found on [crates.io/crates/jupiter](https://crates.io/crates/jupiter).
+//! Further info can be found on [crates.io/crates/jupiter](https://crates.io/crates/jupiter).
 //! As well as on GitHub: [github.com/scireum/jupiter](https://github.com/scireum/jupiter)
 #![deny(
     warnings,

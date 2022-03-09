@@ -193,7 +193,7 @@ async fn handle_error(error: OutputError, writer: &mut WriteHalf<'_>) -> anyhow:
     // IO error there is no point in sending yet another message, as will most
     // probably fail anyway, so we just close the connection...
     if let OutputError::ProtocolError(error) = error {
-        let error_message = error.to_string().replace("\r", " ").replace("\n", " ");
+        let error_message = error.to_string().replace('\r', " ").replace('\n', " ");
         writer
             .write_all(format!("-SERVER: {}\r\n", error_message).as_bytes())
             .await?;
