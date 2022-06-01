@@ -1,9 +1,10 @@
-//! Provides a size constrained [LRUCache](LRUCache).
+//! Provides a size constrained [LruCache](LruCache).
 //!
 //! This behaves just like a map but once a maximal number of entries or a data allocation limit
 //! is hit, old entries are dismissed.
 //!
-//! It also supports refreshing data in a lazy manner using [extended_get](LRUCache::extended_get).
+//! It also supports refreshing data in a lazy manner using [extended_get](LruCache::extended_get)
+//! and flushing the cache by secondary keys via [remove_by_secondary](LruCache::remove_by_secondary).
 #[cfg(test)]
 use mock_instant::Instant;
 #[cfg(not(test))]
@@ -172,7 +173,9 @@ impl<V: ByteSize> LruCache<V> {
         self.put_with_secondaries(key, value, None)
     }
 
-    /// Stores the given value for the given key.
+    /// Stores the given value for the given key and secondary keys.
+    ///
+    /// These keys can be used to also flush this entry from the cache.
     ///
     /// # Errors
     /// Fails if the given entry is larger than **max_memory** (the max total size of the cache).
@@ -192,8 +195,13 @@ impl<V: ByteSize> LruCache<V> {
     ///                             Duration::from_secs(2),
     ///         );
     ///
-    /// lru.put("Foo".to_owned(), "Bar".to_owned());
+    /// lru.put_with_secondaries("Foo".to_owned(),
+    ///                          "Bar".to_owned(),
+    ///                          Some(vec!["Foobar".to_owned()]));
     /// assert_eq!(lru.get("Foo").unwrap(), &"Bar".to_owned());
+    ///
+    /// lru.remove_by_secondary("Foobar");
+    /// assert_eq!(lru.get("Foo"), None);
     ///```    
     pub fn put_with_secondaries(
         &mut self,
@@ -810,7 +818,7 @@ mod tests {
 
         lru.put("Hello".to_owned(), "World".to_owned()).unwrap();
 
-        // We expect only a marginal overhead for an empty hash map and a single
+        // We expect only a marginal overhead for an almost empty hash map and a single
         // key and value...
         assert!(lru.total_allocated_memory() < 32_000);
     }
