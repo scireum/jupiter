@@ -799,6 +799,23 @@ mod tests {
     use tokio::time::Duration;
 
     #[test]
+    fn empty_caches_consume_no_resources() {
+        let mut lru = LruCache::new(
+            2 ^ 64,
+            1024,
+            Duration::from_secs(60 * 60),
+            Duration::from_secs(60 * 60),
+            Duration::from_secs(60),
+        );
+
+        lru.put("Hello".to_owned(), "World".to_owned()).unwrap();
+
+        // We expect only a marginal overhead for an empty hash map and a single
+        // key and value...
+        assert!(lru.total_allocated_memory() < 32_000);
+    }
+
+    #[test]
     fn capacity_is_enforced() {
         // Creates a cache, which hase quite some room memory wise but only permits
         // four entries at the same time...
