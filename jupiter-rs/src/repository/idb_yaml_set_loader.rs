@@ -47,8 +47,15 @@ impl Loader for IdbYamlSetLoader {
         let data = tokio::fs::read_to_string(loader_info.get_data())
             .await
             .context("Unable to read data file")?;
-        let rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
+        let mut rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
             .context("Cannot parse the given YAML data.")?;
+
+        // If only one yaml object is present and it's an array -> unwrap it. This was most probably
+        // a JSON file like [{obj1}, {obj2}...]...
+        if rows.len() == 1 && rows.get(0).unwrap().is_array() {
+            rows = rows.remove(0).into_vec().unwrap();
+        }
+
         let source = loader_info.file_name().to_string();
         let sets = self.load_sets(rows);
         for (name, set) in sets {

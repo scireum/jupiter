@@ -233,10 +233,36 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(99), None);
     /// ```
     pub fn get(&self, key: Symbol) -> Option<&V> {
-        if let Ok(pos) = self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        if let Ok(pos) = self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Some(&self.entries[pos].1)
         } else {
             None
+        }
+    }
+
+    /// Retrieves the value for the given key or creates a new one in none exists.
+    ///
+    /// If a new value is created, [Default::default](Default::default) is invoked and a mutable
+    /// reference is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use jupiter::ig::symbols::SymbolMap;
+    /// let mut map = SymbolMap::<i32>::new();
+    ///
+    /// map.put(42, 1);
+    ///
+    /// assert_eq!(map.get_or_insert(42, || 1), &1);
+    /// assert_eq!(map.get_or_insert(23, || 0), &0);
+    /// ```
+    pub fn get_or_insert(&mut self, key: Symbol, mut factory: impl FnMut() -> V) -> &mut V {
+        match self.entries.binary_search_by_key(&key, |entry| entry.0) {
+            Ok(pos) => &mut self.entries[pos].1,
+            Err(pos) => {
+                self.entries.insert(pos, (key, factory()));
+                &mut self.entries[pos].1
+            }
         }
     }
 
@@ -254,7 +280,7 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(42).unwrap().as_str(), "Hello World");
     /// ```
     pub fn get_mut(&mut self, key: Symbol) -> Option<&mut V> {
-        if let Ok(pos) = self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        if let Ok(pos) = self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Some(&mut self.entries[pos].1)
         } else {
             None
@@ -274,7 +300,7 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(42).unwrap().as_str(), "Hello");
     /// ```
     pub fn put(&mut self, key: Symbol, value: V) {
-        match self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        match self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Ok(pos) => self.entries[pos].1 = value,
             Err(pos) => self.entries.insert(pos, (key, value)),
         }
@@ -404,5 +430,18 @@ mod tests {
             map.entries().map(|(symbol, _)| symbol).sum::<i32>(),
             127 * 128 / 2
         );
+    }
+
+    #[test]
+    pub fn get_or_insert_works() {
+        let mut map = SymbolMap::new();
+
+        assert_eq!(map.get_or_insert(42, || 0), &0);
+
+        map.put(42, 1);
+        assert_eq!(map.get_or_insert(42, || 1), &1);
+
+        *map.get_or_insert(23, || 0) = 5;
+        assert_eq!(map.get_or_insert(23, || 0), &5);
     }
 }
