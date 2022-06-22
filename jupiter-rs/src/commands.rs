@@ -607,7 +607,7 @@ impl Dispatcher {
             _ => response.error(&format!("CLIENT: Unknown command: {}", request.command()))?,
         }
 
-        Ok(response.complete()?)
+        response.complete()
     }
 
     async fn invoke_command(
