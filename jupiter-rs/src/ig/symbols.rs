@@ -240,6 +240,32 @@ impl<V: Default> SymbolMap<V> {
         }
     }
 
+    /// Retrieves the value for the given key or creates a new one in none exists.
+    ///
+    /// If a new value is created, [Default::default](Default::default) is invoked and a mutable
+    /// reference is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use jupiter::ig::symbols::SymbolMap;
+    /// let mut map = SymbolMap::<i32>::new();
+    ///
+    /// map.put(42, 1);
+    ///
+    /// assert_eq!(map.get_or_insert(42, || 1), &1);
+    /// assert_eq!(map.get_or_insert(23, || 0), &0);
+    /// ```
+    pub fn get_or_insert(&mut self, key: Symbol, mut factory: impl FnMut() -> V) -> &mut V {
+        match self.entries.binary_search_by_key(&key, |entry| entry.0) {
+            Ok(pos) => &mut self.entries[pos].1,
+            Err(pos) => {
+                self.entries.insert(pos, (key, factory()));
+                &mut self.entries[pos].1
+            }
+        }
+    }
+
     /// Retrieves the value for the given key as mutable reference.
     ///
     /// # Examples
@@ -404,5 +430,18 @@ mod tests {
             map.entries().map(|(symbol, _)| symbol).sum::<i32>(),
             127 * 128 / 2
         );
+    }
+
+    #[test]
+    pub fn get_or_insert_works() {
+        let mut map = SymbolMap::new();
+
+        assert_eq!(map.get_or_insert(42, || 0), &0);
+
+        map.put(42, 1);
+        assert_eq!(map.get_or_insert(42, || 1), &1);
+
+        *map.get_or_insert(23, || 0) = 5;
+        assert_eq!(map.get_or_insert(23, || 0), &5);
     }
 }
