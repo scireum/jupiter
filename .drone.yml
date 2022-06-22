@@ -49,7 +49,7 @@ steps:
         - pull_request
 
   - name: package
-    image: rust:1.59st
+    image: rust:1.59
 
     volumes: *scireum_volumes
     commands:
