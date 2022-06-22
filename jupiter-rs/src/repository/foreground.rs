@@ -157,9 +157,7 @@ fn list_command(call: &mut Call, files: &[RepositoryFile]) -> CommandResult {
                 "{:<50} {:>12} {:>25}\n",
                 &file.name,
                 format_size(file.size as usize),
-                DateTime::<Local>::from(file.last_modified)
-                    .format("%Y-%m-%dT%H:%M:%S")
-                    .to_string()
+                DateTime::<Local>::from(file.last_modified).format("%Y-%m-%dT%H:%M:%S")
             )
             .as_str();
         }
