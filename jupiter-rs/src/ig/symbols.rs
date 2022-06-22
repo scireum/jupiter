@@ -233,7 +233,7 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(99), None);
     /// ```
     pub fn get(&self, key: Symbol) -> Option<&V> {
-        if let Ok(pos) = self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        if let Ok(pos) = self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Some(&self.entries[pos].1)
         } else {
             None
@@ -280,7 +280,7 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(42).unwrap().as_str(), "Hello World");
     /// ```
     pub fn get_mut(&mut self, key: Symbol) -> Option<&mut V> {
-        if let Ok(pos) = self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        if let Ok(pos) = self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Some(&mut self.entries[pos].1)
         } else {
             None
@@ -300,7 +300,7 @@ impl<V: Default> SymbolMap<V> {
     /// assert_eq!(map.get(42).unwrap().as_str(), "Hello");
     /// ```
     pub fn put(&mut self, key: Symbol, value: V) {
-        match self.entries.binary_search_by(|(x, _)| x.cmp(&key)) {
+        match self.entries.binary_search_by_key(&key, |entry| entry.0) {
             Ok(pos) => self.entries[pos].1 = value,
             Err(pos) => self.entries.insert(pos, (key, value)),
         }
