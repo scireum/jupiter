@@ -198,7 +198,7 @@ impl SymbolTable {
 /// this vector sorted by the key so that a lookup can be done via `binary_search`.
 ///
 /// Using this approach easily beats `HashMap` in both, performance and memory consumption.
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, Eq, PartialEq, Default)]
 pub struct SymbolMap<V> {
     entries: Vec<(Symbol, V)>,
 }

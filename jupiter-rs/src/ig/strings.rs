@@ -19,7 +19,7 @@ use std::fmt::{Debug, Display, Formatter};
 /// is known in advance and will never change (therefore we do not need to allocate a vector
 /// with a larger capacity). This saves us from over-provisioning memory and also 8 more bytes
 /// to store the capacity.
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct BoxedString {
     data: Box<[u8]>,
 }
