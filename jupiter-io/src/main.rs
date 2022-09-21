@@ -4,6 +4,13 @@ use apollo_framework::server::Server;
 use jupiter::server::{resp_protocol_loop, RespPayload};
 use std::panic::{set_hook, take_hook};
 
+#[cfg(not(target_env = "msvc"))]
+use jemallocator::Jemalloc;
+
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: Jemalloc = Jemalloc;
+
 #[tokio::main]
 async fn main() {
     // Installs a panic handler which crashes the whole process instead of tying to survive with

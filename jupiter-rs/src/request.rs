@@ -57,7 +57,7 @@
 //! let request = Request::example(vec!("PING"));
 //! assert_eq!(request.command(), "PING");
 //! ```
-use std::fmt::{Display, Formatter};
+use std::fmt::{Display, Formatter, Write};
 
 use anyhow::{anyhow, Context, Result};
 use bytes::{Bytes, BytesMut};
@@ -147,9 +147,9 @@ impl Request {
     /// ```
     pub fn example(data: Vec<&str>) -> Request {
         let mut input = String::new();
-        input.push_str(&format!("*{}\r\n", data.len()));
+        let _ = write!(input, "*{}\r\n", data.len());
         for param in data {
-            input.push_str(&format!("${}\r\n{}\r\n", param.len(), param));
+            let _ = write!(input, "${}\r\n{}\r\n", param.len(), param);
         }
 
         Request::parse(&BytesMut::from(input.as_str()))
