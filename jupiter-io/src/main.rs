@@ -1,7 +1,6 @@
 use jupiter::builder::Builder;
 
-use apollo_framework::server::Server;
-use jupiter::server::{resp_protocol_loop, RespPayload};
+use jupiter::server::Server;
 use std::panic::{set_hook, take_hook};
 
 #[cfg(not(target_env = "msvc"))]
@@ -38,8 +37,5 @@ async fn main() {
     // Setup and install a data repository...
     jupiter::repository::install(platform.clone(), jupiter::repository::create(&platform));
 
-    platform
-        .require::<Server<RespPayload>>()
-        .event_loop(resp_protocol_loop)
-        .await;
+    platform.require::<Server>().event_loop().await;
 }

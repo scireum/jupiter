@@ -1,6 +1,3 @@
-use crate::repository::loader::LoaderInfo;
-use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
-use anyhow::Context;
 /// Contains the background worker of the repository.
 ///
 /// As the repository has to execute some "long running" tasks like downloading data via HTTP
@@ -9,7 +6,11 @@ use anyhow::Context;
 ///
 /// Note that being a simple actor, each background task is executed after another. Once we believe
 /// that the repository has changed (e.g. after downloading a file), we notify the frontend again.
-use apollo_framework::platform::Platform;
+use crate::actor;
+use crate::platform::Platform;
+use crate::repository::loader::LoaderInfo;
+use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
+use anyhow::Context;
 use chrono::DateTime;
 use futures::TryStreamExt;
 use hyper::{Body, Client, Request, Uri};

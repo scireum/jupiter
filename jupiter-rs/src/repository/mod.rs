@@ -128,12 +128,12 @@ use tokio::sync::broadcast;
 use idb_yaml_loader::IdbYamlLoader;
 
 use crate::commands::CommandDictionary;
+use crate::platform::Platform;
 use crate::repository::foreground::ForegroundCommands;
 use crate::repository::idb_csv_loader::IdbCsvLoader;
 use crate::repository::idb_json_loader::IdbJsonLoader;
 use crate::repository::idb_yaml_set_loader::IdbYamlSetLoader;
 use crate::repository::loader::{Loader, LoaderCommands};
-use apollo_framework::platform::Platform;
 
 mod background;
 mod foreground;
@@ -379,12 +379,11 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
+    use crate::config::Config;
+    use crate::platform::Platform;
     use crate::repository::{FileEvent, FileEventReceiver, Repository};
-    use crate::server::{resp_protocol_loop, RespPayload};
+    use crate::server::Server;
     use crate::testing::{query_redis_async, test_async};
-    use apollo_framework::config::Config;
-    use apollo_framework::platform::Platform;
-    use apollo_framework::server::Server;
     use chrono::{TimeZone, Utc};
     use hyper::header::HeaderValue;
     use hyper::service::{make_service_fn, service_fn};
@@ -405,7 +404,7 @@ mod tests {
 
         //  Setup and create a platform...
         let platform = Builder::new().enable_all().disable_config().build().await;
-        let _ = apollo_framework::config::install(platform.clone(), false).await;
+        let _ = crate::config::install(platform.clone(), false).await;
         let repository = crate::repository::create(&platform);
         crate::repository::install(platform.clone(), repository.clone());
 
@@ -423,11 +422,7 @@ mod tests {
             .unwrap();
 
         // Fork the server in a separate thread..
-        Server::fork_and_await(
-            &platform.require::<Server<RespPayload>>(),
-            &resp_protocol_loop,
-        )
-        .await;
+        Server::fork_and_await(&platform.require::<Server>()).await;
 
         (platform, repository)
     }

@@ -138,12 +138,11 @@ use std::time::Instant;
 use anyhow::anyhow;
 use bytes::BytesMut;
 
+use crate::average::Average;
+use crate::platform::Platform;
 use crate::request::Request;
 use crate::response::{OutputError, Response};
-use crate::server::RespPayload;
-use apollo_framework::average::Average;
-use apollo_framework::platform::Platform;
-use apollo_framework::server::Connection;
+use crate::server::Connection;
 
 /// Represents an error when executing a command.
 ///
@@ -553,7 +552,7 @@ impl Dispatcher {
     pub async fn invoke(
         &mut self,
         request: Request,
-        connection: Option<&Arc<Connection<RespPayload>>>,
+        connection: Option<&Arc<Connection>>,
     ) -> Result<BytesMut, OutputError> {
         let response = Response::new();
         match self.commands.get_mut(request.command()) {
@@ -580,7 +579,7 @@ impl Dispatcher {
         &mut self,
         request: Request,
         mut response: Response,
-        connection: Option<&Arc<Connection<RespPayload>>>,
+        connection: Option<&Arc<Connection>>,
     ) -> Result<BytesMut, OutputError> {
         match request.command().to_uppercase().as_str() {
             "QUIT" => {
@@ -592,7 +591,7 @@ impl Dispatcher {
             "CLIENT" => {
                 if request.str_parameter(0)?.to_uppercase() == "SETNAME" {
                     if let Some(connection) = connection {
-                        connection.payload().set_name(request.str_parameter(1)?);
+                        connection.set_name(request.str_parameter(1)?);
                     }
                 }
                 response.ok()?;

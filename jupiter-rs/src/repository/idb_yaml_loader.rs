@@ -21,9 +21,9 @@
 //! rowNumber: 'priority' # Specifies an auto-generated field which contains the row-number of each record
 //! ```
 use crate::ig::yaml::list_to_doc;
+use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
 use anyhow::Context;
-use apollo_framework::platform::Platform;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 use yaml_rust::Yaml;

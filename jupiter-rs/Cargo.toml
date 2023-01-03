@@ -39,7 +39,6 @@ futures = "0.3.17"
 async-trait = "0.1.51"
 fnv = "1.0.7"
 csv = "1.1.6"
-apollo-framework = "1.0.2"
 itertools = "0.10.1"
 
 [target.'cfg(not(target_env = "msvc"))'.dependencies]

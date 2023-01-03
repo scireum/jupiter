@@ -21,9 +21,9 @@
 //! fulltextIndices: ['fields', 'to', 'search', 'in']
 //! ```
 use crate::ig::csv::csv_to_doc;
+use crate::platform::Platform;
 use crate::repository::loader::{Loader, LoaderInfo};
 use anyhow::Context;
-use apollo_framework::platform::Platform;
 use csv::ReaderBuilder;
 use std::fmt::{Display, Formatter};
 use std::sync::Arc;

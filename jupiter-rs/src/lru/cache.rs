@@ -72,9 +72,9 @@ use std::time::Duration;
 
 use crate::commands::{queue, Call, CommandResult};
 use crate::commands::{CommandDictionary, ResultExt};
-use apollo_framework::config::Config;
-use apollo_framework::fmt::{format_duration, format_size, parse_duration, parse_size};
-use apollo_framework::platform::Platform;
+use crate::config::Config;
+use crate::fmt::{format_duration, format_size, parse_duration, parse_size};
+use crate::platform::Platform;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -578,8 +578,8 @@ fn keys_command(call: &mut Call, caches: &mut HashMap<String, StringCache>) -> C
 mod tests {
     use crate::builder::Builder;
     use crate::commands::{CommandDictionary, Dispatcher};
+    use crate::config::Config;
     use crate::request::Request;
-    use apollo_framework::config::Config;
     use mock_instant::MockClock;
     use std::time::Duration;
 

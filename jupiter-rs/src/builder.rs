@@ -21,12 +21,10 @@
 //!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
 //! }
 //! ```
-use std::sync::Arc;
-
-use crate::server::RespPayload;
+use crate::platform::Platform;
+use crate::server::Server;
 use crate::{init_logging, JUPITER_REVISION, JUPITER_VERSION};
-use apollo_framework::platform::Platform;
-use apollo_framework::server::Server;
+use std::sync::Arc;
 
 /// Initializes the framework by creating and initializing all core components.
 ///
@@ -212,22 +210,17 @@ impl Builder {
             num_cpus::get(),
             num_cpus::get_physical()
         );
-        log::info!(
-            "based on Apollo (v {} - rev {})",
-            apollo_framework::APOLLO_VERSION,
-            apollo_framework::APOLLO_REVISION
-        );
 
         if self.enable_signals {
-            apollo_framework::signals::install(platform.clone());
+            crate::signals::install(platform.clone());
         }
 
         if self.setup_config {
-            let _ = apollo_framework::config::install(platform.clone(), true).await;
+            let _ = crate::config::install(platform.clone(), true).await;
         }
 
         if self.setup_server {
-            let _ = Server::<RespPayload>::install(&platform);
+            let _ = Server::install(&platform);
         }
 
         if self.setup_commands {

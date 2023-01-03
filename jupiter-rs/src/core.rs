@@ -12,20 +12,18 @@
 //!
 //! [install](install) is invoked by the [Builder](crate::builder::Builder) unless disabled.
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult};
-use apollo_framework::fmt::format_short_duration;
-use apollo_framework::platform::Platform;
+use crate::fmt::{format_short_duration, format_size};
+use crate::platform::Platform;
 
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::server::RespPayload;
+use crate::actor;
+use crate::config::Config;
+use crate::server::Server;
 use crate::{JUPITER_REVISION, JUPITER_VERSION};
 use anyhow::Context;
-use apollo_framework::config::Config;
-use apollo_framework::server::Server;
-use apollo_framework::{APOLLO_REVISION, APOLLO_VERSION};
 use itertools::Itertools;
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Enumerates the commands supported by this facility.
@@ -82,7 +80,7 @@ fn actor(
     let (queue, mut endpoint) = queue();
 
     let _ = tokio::spawn(async move {
-        let server = platform.require::<Server<RespPayload>>();
+        let server = platform.require::<Server>();
         let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();
 
@@ -119,7 +117,7 @@ fn actor(
     queue
 }
 
-fn connections_command(call: &mut Call, server: &Arc<Server<RespPayload>>) -> CommandResult {
+fn connections_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     let connections = server.connections();
     let mut result = String::new();
 
@@ -135,15 +133,9 @@ fn connections_command(call: &mut Call, server: &Arc<Server<RespPayload>>) -> Co
         result += format!(
             "{:<20} {:<30} {:>10} {:>15}\n",
             &connection.peer_address,
-            connection
-                .payload
-                .get_name()
-                .as_ref()
-                .as_ref()
-                .map(|name| Cow::Owned(name.clone()))
-                .unwrap_or(Cow::Borrowed("")),
-            connection.payload.commands().count(),
-            format_short_duration(connection.payload.commands().avg())
+            connection.client,
+            connection.commands.count(),
+            format_short_duration(connection.commands.avg())
         )
         .as_str();
     }
@@ -171,18 +163,8 @@ fn mem_command(call: &mut Call) -> CommandResult {
         call.response.number(resident as i64)?;
     } else {
         let mut result = "Use 'SYS.MEM raw' to obtain the raw values.\n\n".to_owned();
-        result += format!(
-            "{:20} {:>10}\n",
-            "Used Memory:",
-            apollo_framework::fmt::format_size(allocated)
-        )
-        .as_str();
-        result += format!(
-            "{:20} {:>10}\n",
-            "Allocated Memory:",
-            apollo_framework::fmt::format_size(resident)
-        )
-        .as_str();
+        result += format!("{:20} {:>10}\n", "Used Memory:", format_size(allocated)).as_str();
+        result += format!("{:20} {:>10}\n", "Allocated Memory:", format_size(resident)).as_str();
 
         call.response.bulk(result)?;
     }
@@ -190,7 +172,7 @@ fn mem_command(call: &mut Call) -> CommandResult {
     Ok(())
 }
 
-fn kill_command(call: &mut Call, server: &Arc<Server<RespPayload>>) -> CommandResult {
+fn kill_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     if server.kill(call.request.str_parameter(0)?) {
         call.response.ok()?;
         Ok(())
@@ -240,20 +222,13 @@ fn commands_command(call: &mut Call, commands: &Arc<CommandDictionary>) -> Comma
 
 fn version_command(call: &mut Call, version_info: &str, revision_info: &str) -> CommandResult {
     if call.request.parameter_count() == 1 {
-        call.response.array(6)?;
-        call.response.simple(APOLLO_VERSION)?;
-        call.response.simple(APOLLO_REVISION)?;
+        call.response.array(4)?;
         call.response.simple(JUPITER_VERSION)?;
         call.response.simple(JUPITER_REVISION)?;
         call.response.bulk(version_info)?;
         call.response.bulk(revision_info)?;
     } else {
         let mut result = "Use 'SYS.VERSION raw' to obtain the raw values.\n\n".to_owned();
-        result += format!(
-            "Apollo:      {:>20} / {}\n",
-            APOLLO_VERSION, APOLLO_REVISION
-        )
-        .as_str();
         result += format!(
             "Jupiter:     {:>20} / {}\n",
             JUPITER_VERSION, JUPITER_REVISION
@@ -275,10 +250,9 @@ fn panic_command(_call: &mut Call) -> CommandResult {
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
-    use crate::server::{resp_protocol_loop, RespPayload};
+    use crate::config::Config;
+    use crate::server::Server;
     use crate::testing::{query_redis_async, test_async};
-    use apollo_framework::config::Config;
-    use apollo_framework::server::Server;
 
     #[test]
     fn integration_test() {
@@ -310,11 +284,7 @@ mod tests {
 
             // However, as we want to run some examples, we fork the server in an
             // separate thread..
-            Server::fork_and_await(
-                &platform.require::<Server<RespPayload>>(),
-                &resp_protocol_loop,
-            )
-            .await;
+            Server::fork_and_await(&platform.require::<Server>()).await;
 
             // Invoke some diagnostics...
             assert!(
