@@ -148,6 +148,7 @@ use crate::ig::docs::{Element, Query};
 use crate::platform::Platform;
 use crate::request::Request;
 use crate::response::Response;
+use crate::spawn;
 
 pub mod set;
 pub mod table;
@@ -267,7 +268,7 @@ pub fn install(platform: Arc<Platform>) {
 
 /// Handles both, incoming commands and administrative actions.
 fn actor(mut endpoint: Endpoint, mut admin_receiver: Receiver<DatabaseCommand>) {
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let mut tables = HashMap::new();
         let mut sets = HashMap::new();
 
@@ -426,7 +427,7 @@ async fn handle_table_call(mut call: Call, database: &HashMap<String, Arc<Table>
         return;
     };
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let token = call.token;
         match Commands::from_usize(token) {
             Some(Commands::Lookup) => {
@@ -450,10 +451,7 @@ async fn handle_table_call(mut call: Call, database: &HashMap<String, Arc<Table>
             Some(Commands::Scan) => execute_scan(&mut call, table, false).complete(call),
             Some(Commands::IScan) => execute_scan(&mut call, table, true).complete(call),
             Some(Commands::Len) => execute_table_len(&mut call, table).complete(call),
-            _ => call.complete(Err(CommandError::ServerError(anyhow::anyhow!(
-                "Unknown token received: {}!",
-                token
-            )))),
+            _ => call.handle_unknown_token(),
         }
     });
 }
@@ -744,16 +742,13 @@ async fn handle_set_call(mut call: Call, database: &HashMap<String, (Arc<Set>, S
         return;
     };
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let token = call.token;
         match Commands::from_usize(token) {
             Some(Commands::Contains) => set_contains_command(&mut call, set).complete(call),
             Some(Commands::Cardinality) => set_cardinality_command(&mut call, set).complete(call),
             Some(Commands::IndexOf) => set_index_of_command(&mut call, set).complete(call),
-            _ => call.complete(Err(CommandError::ServerError(anyhow::anyhow!(
-                "Unknown token received: {}!",
-                token
-            )))),
+            _ => call.handle_unknown_token(),
         }
     });
 }
@@ -809,7 +804,7 @@ fn handle_admin(
                 "New or updated table: {} ({} rows, {})",
                 &name,
                 table.len(),
-                apollo_framework::fmt::format_size(table.allocated_memory())
+                format_size(table.allocated_memory())
             );
             let _ = tables.insert(name, Arc::new(table));
         }
@@ -822,7 +817,7 @@ fn handle_admin(
                 "New or updated set: {} ({} elements, {}, Source: {})",
                 &name,
                 set.len(),
-                apollo_framework::fmt::format_size(set.allocated_memory()),
+                format_size(set.allocated_memory()),
                 source
             );
             let _ = sets.insert(name, (Arc::new(set), source));
@@ -837,16 +832,15 @@ fn handle_admin(
 #[cfg(test)]
 mod tests {
     use crate::builder::Builder;
+    use crate::config::Config;
     use crate::idb::set::Set;
     use crate::idb::table::{IndexType, Table};
     use crate::idb::{install, Database, DatabaseCommand};
     use crate::ig::docs::Doc;
     use crate::ig::yaml::list_to_doc;
-    use crate::server::{resp_protocol_loop, RespPayload};
+    use crate::platform::Platform;
+    use crate::server::Server;
     use crate::testing::{query_redis_async, test_async};
-    use apollo_framework::config::Config;
-    use apollo_framework::platform::Platform;
-    use apollo_framework::server::Server;
     use std::sync::Arc;
     use tokio::time::Duration;
     use yaml_rust::YamlLoader;
@@ -1130,11 +1124,7 @@ name: Test
             .unwrap();
 
         // Fork the server in a separate thread..
-        Server::fork_and_await(
-            &platform.require::<Server<RespPayload>>(),
-            &resp_protocol_loop,
-        )
-        .await;
+        Server::fork_and_await(&platform.require::<Server>()).await;
 
         (platform.clone(), platform.require::<Database>())
     }

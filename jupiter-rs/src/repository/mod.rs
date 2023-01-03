@@ -94,8 +94,7 @@
 //! # use jupiter::repository::idb_yaml_loader::IdbYamlLoader;
 //! # use std::sync::Arc;
 //! # use jupiter::repository::create;
-//! # use apollo_framework::server::Server;
-//! # use jupiter::server::{RespPayload, resp_protocol_loop};
+//! # use jupiter::server::Server;
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -113,7 +112,7 @@
 //!     jupiter::repository::install(platform.clone(), repository);
 //!
 //!     // Start the main event loop...
-//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop);
+//!     platform.require::<Server>().event_loop();
 //! }
 //! ```
 use std::collections::HashMap;
@@ -786,8 +785,8 @@ mod tests {
             let _ = response.headers_mut().insert(
                 hyper::header::LAST_MODIFIED,
                 HeaderValue::from_str(
-                    Utc.ymd(2010, 10, 10)
-                        .and_hms(10, 10, 10)
+                    Utc.with_ymd_and_hms(2010, 10, 10, 10, 10, 10)
+                        .unwrap()
                         .to_rfc2822()
                         .as_str(),
                 )

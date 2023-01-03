@@ -5,11 +5,12 @@
 use std::sync::Arc;
 
 use crate::platform::Platform;
+use crate::spawn;
 
 /// Installs a signal handler for the given platform which awaits either a **CTRL+C** or **SIGHUP**.
 #[cfg(not(windows))]
 pub fn install(platform: Arc<Platform>) {
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let ctrl_c = tokio::signal::ctrl_c();
         let mut sig_hup =
             tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()).unwrap();

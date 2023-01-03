@@ -1,13 +1,14 @@
-/// Contains the foreground actor of the repository.
-///
-/// The foreground actor is in charge accepting all commands and delegating them to the
-/// `background actor`. If the background actor signals, that the repository contents have changed,
-/// the `loader actor`is notified.
 use crate::commands::{queue, Call, CommandResult, Queue};
 use crate::fmt::format_size;
 use crate::platform::Platform;
 use crate::repository::background::BackgroundCommand;
 use crate::repository::{BackgroundEvent, Repository, RepositoryFile};
+/// Contains the foreground actor of the repository.
+///
+/// The foreground actor is in charge accepting all commands and delegating them to the
+/// `background actor`. If the background actor signals, that the repository contents have changed,
+/// the `loader actor`is notified.
+use crate::spawn;
 use anyhow::Context;
 use chrono::{DateTime, Local};
 use num_derive::FromPrimitive;
@@ -61,7 +62,7 @@ pub fn actor(
 ) -> Queue {
     let (command_queue, mut commands_endpoint) = queue();
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         use crate::commands::ResultExt;
 
         let mut files = Vec::new();
@@ -101,7 +102,7 @@ pub fn actor(
                         Some(ForegroundCommands::Epochs) => {
                             epochs_command(&mut call, foreground_epoch, background_epoch).await.complete(call);
                         }
-                        None => ()
+                        _ => call.handle_unknown_token(),
                     }
                 },
                 update = update_notifier.recv() => {

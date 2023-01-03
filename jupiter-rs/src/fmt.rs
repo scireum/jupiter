@@ -38,13 +38,13 @@ pub fn format_micros(micros: i32, f: &mut dyn std::fmt::Write) -> std::fmt::Resu
 /// # Examples
 ///
 /// ```
-/// assert_eq!(apollo_framework::fmt::format_short_duration(100), "100 us");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(8_192), "8.19 ms");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(32_768), "32.8 ms");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(128_123), "128 ms");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(1_128_123), "1.13 s");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(10_128_123), "10.1 s");
-/// assert_eq!(apollo_framework::fmt::format_short_duration(101_000_000), "101 s");
+/// assert_eq!(jupiter::fmt::format_short_duration(100), "100 us");
+/// assert_eq!(jupiter::fmt::format_short_duration(8_192), "8.19 ms");
+/// assert_eq!(jupiter::fmt::format_short_duration(32_768), "32.8 ms");
+/// assert_eq!(jupiter::fmt::format_short_duration(128_123), "128 ms");
+/// assert_eq!(jupiter::fmt::format_short_duration(1_128_123), "1.13 s");
+/// assert_eq!(jupiter::fmt::format_short_duration(10_128_123), "10.1 s");
+/// assert_eq!(jupiter::fmt::format_short_duration(101_000_000), "101 s");
 /// ```
 pub fn format_short_duration(duration_in_micros: i32) -> String {
     let mut result = String::new();
@@ -102,24 +102,24 @@ pub fn format_bytes(size_in_bytes: usize, f: &mut dyn std::fmt::Write) -> std::f
 /// # Examples
 ///
 /// ```
-/// assert_eq!(apollo_framework::fmt::format_size(0), "0 bytes");
-/// assert_eq!(apollo_framework::fmt::format_size(1), "1 byte");
-/// assert_eq!(apollo_framework::fmt::format_size(100), "100 bytes");
-/// assert_eq!(apollo_framework::fmt::format_size(8_734), "8.53 KiB");
-/// assert_eq!(apollo_framework::fmt::format_size(87_340), "85.3 KiB");
-/// assert_eq!(apollo_framework::fmt::format_size(873_400), "853 KiB");
-/// assert_eq!(apollo_framework::fmt::format_size(8_734_000), "8.33 MiB");
-/// assert_eq!(apollo_framework::fmt::format_size(87_340_000), "83.3 MiB");
-/// assert_eq!(apollo_framework::fmt::format_size(873_400_000), "833 MiB");
-/// assert_eq!(apollo_framework::fmt::format_size(8_734_000_000), "8.13 GiB");
-/// assert_eq!(apollo_framework::fmt::format_size(87_340_000_000), "81.3 GiB");
-/// assert_eq!(apollo_framework::fmt::format_size(873_400_000_000), "813 GiB");
-/// assert_eq!(apollo_framework::fmt::format_size(8_734_000_000_000), "7.94 TiB");
-/// assert_eq!(apollo_framework::fmt::format_size(87_340_000_000_000), "79.4 TiB");
-/// assert_eq!(apollo_framework::fmt::format_size(873_400_000_000_000), "794 TiB");
-/// assert_eq!(apollo_framework::fmt::format_size(8_734_000_000_000_000), "7.76 PiB");
-/// assert_eq!(apollo_framework::fmt::format_size(87_340_000_000_000_000), "77.6 PiB");
-/// assert_eq!(apollo_framework::fmt::format_size(873_400_000_000_000_000), "776 PiB");
+/// assert_eq!(jupiter::fmt::format_size(0), "0 bytes");
+/// assert_eq!(jupiter::fmt::format_size(1), "1 byte");
+/// assert_eq!(jupiter::fmt::format_size(100), "100 bytes");
+/// assert_eq!(jupiter::fmt::format_size(8_734), "8.53 KiB");
+/// assert_eq!(jupiter::fmt::format_size(87_340), "85.3 KiB");
+/// assert_eq!(jupiter::fmt::format_size(873_400), "853 KiB");
+/// assert_eq!(jupiter::fmt::format_size(8_734_000), "8.33 MiB");
+/// assert_eq!(jupiter::fmt::format_size(87_340_000), "83.3 MiB");
+/// assert_eq!(jupiter::fmt::format_size(873_400_000), "833 MiB");
+/// assert_eq!(jupiter::fmt::format_size(8_734_000_000), "8.13 GiB");
+/// assert_eq!(jupiter::fmt::format_size(87_340_000_000), "81.3 GiB");
+/// assert_eq!(jupiter::fmt::format_size(873_400_000_000), "813 GiB");
+/// assert_eq!(jupiter::fmt::format_size(8_734_000_000_000), "7.94 TiB");
+/// assert_eq!(jupiter::fmt::format_size(87_340_000_000_000), "79.4 TiB");
+/// assert_eq!(jupiter::fmt::format_size(873_400_000_000_000), "794 TiB");
+/// assert_eq!(jupiter::fmt::format_size(8_734_000_000_000_000), "7.76 PiB");
+/// assert_eq!(jupiter::fmt::format_size(87_340_000_000_000_000), "77.6 PiB");
+/// assert_eq!(jupiter::fmt::format_size(873_400_000_000_000_000), "776 PiB");
 /// ```
 pub fn format_size(size_in_bytes: usize) -> String {
     let mut result = String::new();
@@ -141,21 +141,21 @@ pub fn format_size(size_in_bytes: usize) -> String {
 /// # Examples
 ///
 /// ```
-/// assert_eq!(apollo_framework::fmt::parse_size("100").unwrap(), 100);
-/// assert_eq!(apollo_framework::fmt::parse_size("100b").unwrap(), 100);
-/// assert_eq!(apollo_framework::fmt::parse_size("8k").unwrap(), 8192);
-/// assert_eq!(apollo_framework::fmt::parse_size("8m").unwrap(), 8 * 1024 * 1024);
-/// assert_eq!(apollo_framework::fmt::parse_size("4 G").unwrap(), 4 * 1024 * 1024 * 1024);
-/// assert_eq!(apollo_framework::fmt::parse_size("3 T").unwrap(), 3 * 1024 * 1024 * 1024 * 1024);
+/// assert_eq!(jupiter::fmt::parse_size("100").unwrap(), 100);
+/// assert_eq!(jupiter::fmt::parse_size("100b").unwrap(), 100);
+/// assert_eq!(jupiter::fmt::parse_size("8k").unwrap(), 8192);
+/// assert_eq!(jupiter::fmt::parse_size("8m").unwrap(), 8 * 1024 * 1024);
+/// assert_eq!(jupiter::fmt::parse_size("4 G").unwrap(), 4 * 1024 * 1024 * 1024);
+/// assert_eq!(jupiter::fmt::parse_size("3 T").unwrap(), 3 * 1024 * 1024 * 1024 * 1024);
 ///
 /// // An invalid suffix results in an error...
-/// assert_eq!(apollo_framework::fmt::parse_size("3 Y").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_size("3 Y").is_err(), true);
 ///
 /// // Decimal numbers result in an error...
-/// assert_eq!(apollo_framework::fmt::parse_size("1.2g").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_size("1.2g").is_err(), true);
 ///
 /// // Negative numbers result in an error...
-/// assert_eq!(apollo_framework::fmt::parse_size("-1").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_size("-1").is_err(), true);
 /// ```
 pub fn parse_size(str: impl AsRef<str>) -> anyhow::Result<usize> {
     lazy_static::lazy_static! {
@@ -197,20 +197,20 @@ pub fn parse_size(str: impl AsRef<str>) -> anyhow::Result<usize> {
 ///
 /// ```
 /// # use std::time::Duration;
-/// assert_eq!(apollo_framework::fmt::parse_duration("100 ms").unwrap(), Duration::from_millis(100));
-/// assert_eq!(apollo_framework::fmt::parse_duration("12 s").unwrap(), Duration::from_secs(12));
-/// assert_eq!(apollo_framework::fmt::parse_duration("3 M").unwrap(), Duration::from_secs(3 * 60));
-/// assert_eq!(apollo_framework::fmt::parse_duration("2 H").unwrap(), Duration::from_secs(2 * 60 * 60));
-/// assert_eq!(apollo_framework::fmt::parse_duration("5 d").unwrap(), Duration::from_secs(5 * 24 * 60 * 60));
+/// assert_eq!(jupiter::fmt::parse_duration("100 ms").unwrap(), Duration::from_millis(100));
+/// assert_eq!(jupiter::fmt::parse_duration("12 s").unwrap(), Duration::from_secs(12));
+/// assert_eq!(jupiter::fmt::parse_duration("3 M").unwrap(), Duration::from_secs(3 * 60));
+/// assert_eq!(jupiter::fmt::parse_duration("2 H").unwrap(), Duration::from_secs(2 * 60 * 60));
+/// assert_eq!(jupiter::fmt::parse_duration("5 d").unwrap(), Duration::from_secs(5 * 24 * 60 * 60));
 ///
 /// // An invalid suffix results in an error...
-/// assert_eq!(apollo_framework::fmt::parse_duration("3 Y").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_duration("3 Y").is_err(), true);
 ///
 /// // Decimal numbers result in an error...
-/// assert_eq!(apollo_framework::fmt::parse_duration("1.2s").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_duration("1.2s").is_err(), true);
 ///
 /// // Negative numbers result in an error...
-/// assert_eq!(apollo_framework::fmt::parse_duration("-1m").is_err(), true);
+/// assert_eq!(jupiter::fmt::parse_duration("-1m").is_err(), true);
 /// ```
 pub fn parse_duration(str: impl AsRef<str>) -> anyhow::Result<Duration> {
     lazy_static::lazy_static! {
@@ -250,14 +250,14 @@ pub fn parse_duration(str: impl AsRef<str>) -> anyhow::Result<Duration> {
 ///
 /// ```
 /// # use std::time::Duration;
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_millis(13)), "13ms");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_millis(1013)), "1s 13ms");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_millis(62_013)), "1m 2s 13ms");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_secs(60 * 32 + 13)), "32m 13s");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_secs(60 * 61)), "1h 1m");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_secs(4 * 60 * 60)), "4h");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_secs(24 * 60 * 60 + 60 * 60 + 60)), "1d 1h 1m");
-/// assert_eq!(apollo_framework::fmt::format_duration(Duration::from_secs(24 * 60 * 60 + 60 * 60 + 59)), "1d 1h 59s");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_millis(13)), "13ms");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_millis(1013)), "1s 13ms");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_millis(62_013)), "1m 2s 13ms");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_secs(60 * 32 + 13)), "32m 13s");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_secs(60 * 61)), "1h 1m");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_secs(4 * 60 * 60)), "4h");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_secs(24 * 60 * 60 + 60 * 60 + 60)), "1d 1h 1m");
+/// assert_eq!(jupiter::fmt::format_duration(Duration::from_secs(24 * 60 * 60 + 60 * 60 + 59)), "1d 1h 59s");
 /// ```
 pub fn format_duration(duration: Duration) -> String {
     let mut result = String::new();

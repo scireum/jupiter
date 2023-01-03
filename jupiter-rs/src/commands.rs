@@ -1,6 +1,6 @@
 //! Provides the dispatcher which delegates an incoming request to the matching implementation.
 //!
-//! At its core, a [CommandsCommandDictionary](CommandDictionary) dictionary is simply a hash map.
+//! At its core, a [CommandDictionary](CommandDictionary) is simply a hash map.
 //! For each known command, it contains an appropriate entry. This however, doesn't point to a trait
 //! impl or the like, rather it points to a [Queue](Queue) and keeps a numeric index along. If the
 //! matching command is received, the request, a pre-initialized response and the numeric index are
@@ -17,7 +17,7 @@
 //! token which can be specified per command) makes the actor internally behave like a single
 //! threaded task which greatly simplifies concurrency and synchronization requirements.
 //!
-//! Note that actually the **Commands** is only a container to collect and keep all known commands.
+//! Note that actually **Commands** is only a container to collect and keep all known commands.
 //! Each client will request a [Dispatcher](Dispatcher) from it, which can then dispatch incoming
 //! requests and return the appropriate results. This is used so that no locking or other
 //! synchronization primitives are required during operation (once the server is setup, the commands
@@ -43,7 +43,8 @@
 //! let (queue, mut endpoint) = queue();
 //!
 //! // Bind a simple actor which only responds to a single command to the endpoint
-//! // of the queue.
+//! // of the queue. Note that jupiter::spawn! can be used to define and spawn
+//! // such a closure in a way that makes clippy happy.
 //! tokio::spawn(async move {
 //!     loop {
 //!         match endpoint.recv().await {
@@ -293,6 +294,7 @@ impl Call {
     /// send error back to the caller, as the connection might be in an inconsistent state. The
     /// caller then will most probably try to write an error and then close the connection to
     /// prevent any further inconsistencies.
+    #[allow(clippy::question_mark)] // These are currently false positives...
     pub fn complete(mut self, result: CommandResult) {
         // Transforms the current result / response to either a byte representation of the
         // RESP response or, in case of an OutputError, to an error to be send back to the caller..
@@ -300,14 +302,14 @@ impl Call {
             Ok(_) => self.response.complete(),
             Err(CommandError::OutputError(error)) => Err(error),
             Err(CommandError::ClientError(error)) => {
-                if let Err(error) = self.response.error(&format!("CLIENT: {}", error)) {
+                if let Err(error) = self.response.error(format!("CLIENT: {}", error)) {
                     Err(error)
                 } else {
                     self.response.complete()
                 }
             }
             Err(CommandError::ServerError(error)) => {
-                if let Err(error) = self.response.error(&format!("SERVER: {}", error)) {
+                if let Err(error) = self.response.error(format!("SERVER: {}", error)) {
                     Err(error)
                 } else {
                     self.response.complete()
@@ -401,10 +403,10 @@ impl CommandDictionary {
     /// Creates a new and empty dictionary.
     ///
     /// Note that most probably a dictionary is already present and can be obtained from the
-    /// [Platform](apollo_framework::platform::Platform):
+    /// [Platform](jupiter::platform::Platform):
     ///
     /// ```
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use jupiter::commands::CommandDictionary;
     /// # use jupiter::builder::Builder;
     /// # #[tokio::main]
@@ -443,7 +445,7 @@ impl CommandDictionary {
     /// let (queue, mut endpoint) = queue();
     ///
     /// // Attach an actor to the endpoint of the queue...
-    /// // tokio::spawn(...)
+    /// // jupiter::spawn!(...)
     ///
     /// // Register the command...
     /// let commands = CommandDictionary::new();
@@ -516,7 +518,7 @@ impl Dispatcher {
     /// ```
     /// # use jupiter::builder::Builder;
     /// # use jupiter::request::Request;
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use jupiter::commands::CommandDictionary;
     /// # use bytes::BytesMut;
     ///
@@ -603,7 +605,7 @@ impl Dispatcher {
                     response.simple("PONG")?;
                 }
             }
-            _ => response.error(&format!("CLIENT: Unknown command: {}", request.command()))?,
+            _ => response.error(format!("CLIENT: Unknown command: {}", request.command()))?,
         }
 
         response.complete()

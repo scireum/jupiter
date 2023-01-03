@@ -17,9 +17,9 @@
 //!
 //! Obtaining and reading the config:
 //! ```
-//! # use apollo_framework::config;
-//! # use apollo_framework::config::Config;
-//! # use apollo_framework::platform::Platform;
+//! # use jupiter::config;
+//! # use jupiter::config::Config;
+//! # use jupiter::platform::Platform;
 //! # #[tokio::main]
 //! # async fn main() {
 //!
@@ -35,9 +35,9 @@
 //!
 //! Attaching a change listener:
 //! ```no_run
-//! # use apollo_framework::config;
-//! # use apollo_framework::config::Config;
-//! # use apollo_framework::platform::Platform;
+//! # use jupiter::config;
+//! # use jupiter::config::Config;
+//! # use jupiter::platform::Platform;
 //! # #[tokio::main]
 //! # async fn main() {
 //!
@@ -66,6 +66,7 @@ use arc_swap::ArcSwap;
 use yaml_rust::{Yaml, YamlLoader};
 
 use crate::platform::Platform;
+use crate::spawn;
 use anyhow::Context;
 use std::path::Path;
 
@@ -177,15 +178,15 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// # use apollo_framework::config::Config;
+    /// # use jupiter::config::Config;
     /// # use std::time::Instant;
     /// #
     /// # #[tokio::main]
     /// # async fn main() {
-    /// let config = Config::new("apollo_test_config.yml");
+    /// let config = Config::new("test_config.yml");
     ///
     /// // Remove any left over file...
-    /// std::fs::remove_file("apollo_test_config.yml");
+    /// std::fs::remove_file("test_config.yml");
     ///
     /// // Write a config file...
     /// assert_eq!(config.store("
@@ -234,7 +235,7 @@ impl Config {
     /// # Example
     ///
     /// ```
-    /// # use apollo_framework::config::Config;
+    /// # use jupiter::config::Config;
     /// use std::time::Instant;
     /// let config = Config::new("somefile.yml");
     /// config.load_from_string("
@@ -317,7 +318,7 @@ pub async fn install(platform: Arc<Platform>, auto_reload: bool) -> Arc<Config> 
 }
 
 fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
-    std::mem::drop(tokio::spawn(async move {
+    spawn!(async move {
         while platform.is_running() {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             // This will contain the last modified date of the file on disk or be None if the
@@ -340,7 +341,7 @@ fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
                 }
             }
         }
-    }));
+    });
 }
 
 #[cfg(test)]

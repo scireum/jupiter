@@ -1,3 +1,6 @@
+use crate::platform::Platform;
+use crate::repository::loader::LoaderInfo;
+use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
 /// Contains the background worker of the repository.
 ///
 /// As the repository has to execute some "long running" tasks like downloading data via HTTP
@@ -6,10 +9,7 @@
 ///
 /// Note that being a simple actor, each background task is executed after another. Once we believe
 /// that the repository has changed (e.g. after downloading a file), we notify the frontend again.
-use crate::actor;
-use crate::platform::Platform;
-use crate::repository::loader::LoaderInfo;
-use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
+use crate::spawn;
 use anyhow::Context;
 use chrono::DateTime;
 use futures::TryStreamExt;
@@ -18,7 +18,7 @@ use hyper_tls::HttpsConnector;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use tokio::fs::read_dir;
 use tokio::fs::{DirEntry, File};
 use tokio::sync::mpsc;
@@ -69,7 +69,7 @@ pub fn actor(
     let (cmd_queue, mut cmds) = mpsc::channel(1024);
     let (mut change_notifier, changes) = mpsc::channel(1024);
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let mut files = Vec::new();
 
         while platform.is_running() {
@@ -479,7 +479,7 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
                     .get(hyper::header::LAST_MODIFIED)
                     .map(|str| DateTime::parse_from_rfc2822(str.to_str().unwrap_or("")))
                 {
-                    if file_modified >= last_modified.into() {
+                    if file_modified >= Into::<SystemTime>::into(last_modified) {
                         log::info!(
                             "Not downloading {} as {} hasn't changed since its last download",
                             path,

@@ -13,6 +13,7 @@ use crate::ig::docs::Doc;
 use crate::platform::Platform;
 use crate::repository::background::BackgroundCommand;
 use crate::repository::{FileEvent, Repository, RepositoryFile};
+use crate::spawn;
 use anyhow::Context;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
@@ -255,7 +256,7 @@ pub fn actor(
     mut background_task_sender: mpsc::Sender<BackgroundCommand>,
 ) -> Queue {
     let (command_queue, mut commands_endpoint) = queue();
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         use crate::commands::ResultExt;
 
         let mut loaders = HashMap::new();

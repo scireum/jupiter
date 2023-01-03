@@ -7,9 +7,7 @@
 //! Setting up the framework with all features enabled:
 //! ```no_run
 //! # use jupiter::builder::Builder;
-//! # use apollo_framework::server::Server;
-//! # use jupiter::server::RespPayload;
-//! # use jupiter::server::resp_protocol_loop;
+//! # use jupiter::server::Server;
 //! #[tokio::main]
 //! async fn main() {
 //!     // Enable all features and build the platform...
@@ -18,7 +16,7 @@
 //!     // Register custom functions here...
 //!
 //!     // Start the main event loop of the server...
-//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
+//!     platform.require::<Server>().event_loop().await;
 //! }
 //! ```
 use crate::platform::Platform;
@@ -35,9 +33,7 @@ use std::sync::Arc;
 /// Setting up the framework with all features enabled:
 /// ```no_run
 /// # use jupiter::builder::Builder;
-/// # use apollo_framework::server::Server;
-/// # use jupiter::server::RespPayload;
-/// # use jupiter::server::resp_protocol_loop;
+/// # use jupiter::server::Server;
 /// #[tokio::main]
 /// async fn main() {
 ///     // Enable all features and build the platform...
@@ -46,7 +42,7 @@ use std::sync::Arc;
 ///     // Register custom functions here...
 ///     
 ///     // Start the main event loop of the server...
-///     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
+///     platform.require::<Server>().event_loop().await;
 /// }
 /// ```
 #[derive(Default)]
@@ -140,7 +136,7 @@ impl Builder {
         self
     }
 
-    /// Installs [config::Config](apollo_framework::config::Config) and loads the **settings.yml**.
+    /// Installs [config::Config](jupiter::config::Config) and loads the **settings.yml**.
     ///
     /// For more details see: [config](crate::config)
     pub fn enable_config(mut self) -> Self {
@@ -194,7 +190,7 @@ impl Builder {
         self
     }
 
-    /// Builds the [Platform](apollo_framework::platform::Platform) registry with all the enabled components
+    /// Builds the [Platform](jupiter::platform::Platform) registry with all the enabled components
     /// being registered.
     pub async fn build(self) -> Arc<Platform> {
         let platform = Platform::new();

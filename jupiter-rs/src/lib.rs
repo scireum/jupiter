@@ -86,7 +86,7 @@
     unused_import_braces,
     unused_results
 )]
-use simplelog::{ConfigBuilder, LevelFilter, SimpleLogger};
+use simplelog::{format_description, ConfigBuilder, LevelFilter, SimpleLogger};
 use std::sync::Once;
 
 pub mod average;
@@ -117,7 +117,6 @@ pub const JUPITER_REVISION: &str = "NO-REVISION";
 /// framework, which will also setup logging if enabled.
 pub fn init_logging() {
     static INIT_LOGGING: Once = Once::new();
-    static DATE_FORMAT: &str = "[%Y-%m-%dT%H:%M:%S%.3f]";
 
     // We need to do this as otherwise the integration tests might crash as the logging system
     // is initialized several times...
@@ -125,7 +124,9 @@ pub fn init_logging() {
         if let Err(error) = SimpleLogger::init(
             LevelFilter::Debug,
             ConfigBuilder::new()
-                .set_time_format_str(DATE_FORMAT)
+                .set_time_format_custom(format_description!(
+                    "[year]-[month]-[day]T[hour]:[minute]:[second].[subsecond digits:3]"
+                ))
                 .set_thread_level(LevelFilter::Trace)
                 .set_target_level(LevelFilter::Error)
                 .set_location_level(LevelFilter::Trace)
@@ -134,6 +135,27 @@ pub fn init_logging() {
             panic!("Failed to initialize logging system: {}", error);
         }
     });
+}
+
+/// Provides a simple macro to execute an async lambda within `tokio::spawn`.
+///
+/// Note that this also applies std::mem::drop on the returned closure to make
+/// clippy happy.
+///
+/// # Example
+/// ```rust
+/// # #[macro_use] extern crate jupiter;
+/// # #[tokio::main]
+/// # async fn main() {
+/// spawn!(async move {
+///     // perform some async stuff here...
+/// });
+/// # }
+#[macro_export]
+macro_rules! spawn {
+    ($e:expr) => {{
+        std::mem::drop(tokio::spawn($e));
+    }};
 }
 
 #[cfg(test)]

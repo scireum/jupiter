@@ -18,7 +18,6 @@
 //! use tokio::time::Duration;
 //! use jupiter::config::Config;
 //! use jupiter::server::Server;
-//! use jupiter::server::{RespPayload, resp_protocol_loop};
 //!
 //! #[tokio::main]
 //! async fn main() {
@@ -33,10 +32,11 @@
 //!     ", None);
 //!
 //!     // Run the platform...
-//!     platform.require::<Server<RespPayload>>().event_loop(&resp_protocol_loop).await;
+//!     platform.require::<Server>().event_loop().await;
 //! }
 //! ```
 use crate::average::Average;
+use crate::spawn;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -240,7 +240,7 @@ impl Server {
     /// This is most probably used by test scenarios where the tests itself run in the main thread.
     pub fn fork(server: &Arc<Server>) {
         let cloned_server = server.clone();
-        actor!(async move {
+        spawn!(async move {
             cloned_server.event_loop().await;
         });
     }
@@ -352,7 +352,7 @@ impl Server {
     /// "thread" which mainly simply executes the **resp_protocol_loop** for this connection.
     fn handle_new_connection(&self, stream: TcpStream) {
         let platform = self.platform.clone();
-        actor!(async move {
+        spawn!(async move {
             // Mark the connection as nodelay, as we already optimize all writes as far as possible.
             let _ = stream.set_nodelay(true);
 
@@ -469,7 +469,7 @@ async fn handle_error(error: OutputError, writer: &mut WriteHalf<'_>) -> anyhow:
     // IO error there is no point in sending yet another message, as will most
     // probably fail anyway, so we just close the connection...
     if let OutputError::ProtocolError(error) = error {
-        let error_message = error.to_string().replace('\r', " ").replace('\n', " ");
+        let error_message = error.to_string().replace(['\r', '\n'], " ");
         writer
             .write_all(format!("-SERVER: {}\r\n", error_message).as_bytes())
             .await?;

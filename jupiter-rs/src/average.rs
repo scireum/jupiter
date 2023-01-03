@@ -9,7 +9,7 @@
 //! # Example
 //!
 //! ```
-//! # use apollo_framework::average::Average;
+//! # use jupiter::average::Average;
 //! let avg = Average::new();
 //! avg.add(10);
 //! avg.add(20);
@@ -33,7 +33,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 /// # Example
 ///
 /// ```
-/// # use apollo_framework::average::Average;
+/// # use jupiter::average::Average;
 /// let avg = Average::new();
 /// avg.add(10);
 /// avg.add(20);

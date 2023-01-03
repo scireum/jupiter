@@ -18,9 +18,9 @@ use crate::platform::Platform;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
-use crate::actor;
 use crate::config::Config;
 use crate::server::Server;
+use crate::spawn;
 use crate::{JUPITER_REVISION, JUPITER_VERSION};
 use anyhow::Context;
 use itertools::Itertools;
@@ -79,7 +79,7 @@ fn actor(
 
     let (queue, mut endpoint) = queue();
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let server = platform.require::<Server>();
         let config = platform.find::<Config>();
         let commands = platform.require::<CommandDictionary>();

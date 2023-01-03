@@ -16,7 +16,7 @@
 //!
 //! ```
 //! # use std::sync::Arc;
-//! # use apollo_framework::platform::Platform;
+//! # use jupiter::platform::Platform;
 //! struct Service {
 //!     value : i32
 //! }
@@ -59,7 +59,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 ///
 /// Building and accessing components:
 /// ```
-/// # use apollo_framework::platform::Platform;
+/// # use jupiter::platform::Platform;
 /// # use std::sync::Arc;
 ///
 /// struct Service {}
@@ -74,7 +74,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 ///
 /// Checking the central "is running" active..
 /// ```
-/// # use apollo_framework::platform::Platform;
+/// # use jupiter::platform::Platform;
 /// # use std::sync::Arc;
 ///
 /// struct Service {}
@@ -115,7 +115,7 @@ impl Platform {
     ///
     /// # Examples
     /// ```
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use std::sync::Arc;
     ///
     /// struct Service {
@@ -143,7 +143,7 @@ impl Platform {
     ///
     /// # Examples
     /// ```
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use std::sync::Arc;
     ///
     /// struct Service {
@@ -181,7 +181,7 @@ impl Platform {
     ///
     /// # Examples
     /// ```
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use std::sync::Arc;
     ///
     /// struct Service {
@@ -197,7 +197,7 @@ impl Platform {
     ///
     /// Requiring a service which is unknown will panic:
     /// ```should_panic
-    /// # use apollo_framework::platform::Platform;
+    /// # use jupiter::platform::Platform;
     /// # use std::sync::Arc;
     ///
     /// struct UnknownService;

@@ -75,6 +75,7 @@ use crate::commands::{CommandDictionary, ResultExt};
 use crate::config::Config;
 use crate::fmt::{format_duration, format_size, parse_duration, parse_size};
 use crate::platform::Platform;
+use crate::spawn;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 
@@ -123,7 +124,7 @@ pub fn install(platform: Arc<Platform>) {
 fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
     let (queue, mut endpoint) = queue();
 
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let config = platform.require::<Config>();
         let mut config_changed = config.notifier();
 
@@ -145,7 +146,7 @@ fn actor(platform: Arc<Platform>) -> crate::commands::Queue {
                             Some(Commands::Flush) => flush_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Stats) => stats_command(&mut call, &mut caches).complete(call),
                             Some(Commands::Keys) => keys_command(&mut call, &mut caches).complete(call),
-                            _ => ()
+                            _ => call.handle_unknown_token(),
                         }
                     }
                 }

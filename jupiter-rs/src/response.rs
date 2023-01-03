@@ -321,7 +321,7 @@ impl Response {
     /// # }
     /// ```
     pub fn boolean(&mut self, boolean: bool) -> OutputResult {
-        self.number(if boolean { 1 } else { 0 })
+        self.number(i64::from(boolean))
     }
 
     /// Emits the given string as **simple string**.
@@ -430,8 +430,7 @@ impl Response {
             string
                 .as_ref()
                 .to_owned()
-                .replace(&"\r", " ")
-                .replace(&"\n", " ")
+                .replace(['\r', '\n'], " ")
                 .as_str(),
         )?;
         self.buffer.write_str("\r\n")?;
