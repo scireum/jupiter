@@ -14,5 +14,3 @@ codegen-units = 1
 [dependencies]
 jupiter = { path = "../jupiter-rs" }
 tokio = { version = "1.23", features = ["full"] }
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemallocator = "0.5"

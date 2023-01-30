@@ -42,8 +42,5 @@ fnv = "1.0"
 csv = "1.1"
 itertools = "0.10"
 
-[target.'cfg(not(target_env = "msvc"))'.dependencies]
-jemalloc-ctl = "0.5.0"
-
 [dev-dependencies]
 redis = "0.21.2"
