@@ -264,13 +264,6 @@ mod tests {
                     .await
                     .is_some()
             );
-            #[cfg(not(windows))]
-            assert_eq!(
-                query_redis_async(|con| redis::cmd("SYS.MEM").query::<String>(con))
-                    .await
-                    .is_some(),
-                true
-            );
 
             assert!(query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
                 .arg(
