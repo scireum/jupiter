@@ -12,7 +12,7 @@
 //!
 //! [install](install) is invoked by the [Builder](crate::builder::Builder) unless disabled.
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult};
-use crate::fmt::{format_short_duration, format_size};
+use crate::fmt::format_short_duration;
 use crate::platform::Platform;
 
 use num_derive::FromPrimitive;
@@ -32,7 +32,6 @@ enum CoreCommands {
     Commands,
     Connections,
     Kill,
-    Mem,
     SetConfig,
     Version,
     #[cfg(debug_assertions)]
@@ -56,8 +55,6 @@ pub fn install(platform: Arc<Platform>, version_info: String, revision_info: Str
             CoreCommands::Connections as usize,
         );
         commands.register_command("SYS.KILL", queue.clone(), CoreCommands::Kill as usize);
-        #[cfg(not(windows))]
-        commands.register_command("SYS.MEM", queue.clone(), CoreCommands::Mem as usize);
         commands.register_command("SYS.VERSION", queue.clone(), CoreCommands::Version as usize);
         commands.register_command(
             "SYS.SET_CONFIG",
@@ -101,10 +98,6 @@ fn actor(
                         version_command(&mut call, version_info.as_str(), revision_info.as_str())
                             .complete(call)
                     }
-
-                    #[cfg(not(windows))]
-                    Some(CoreCommands::Mem) => mem_command(&mut call).complete(call),
-
                     #[cfg(debug_assertions)]
                     Some(CoreCommands::Panic) => panic_command(&mut call).complete(call),
                     _ => call.handle_unknown_token(),
@@ -142,32 +135,6 @@ fn connections_command(call: &mut Call, server: &Arc<Server>) -> CommandResult {
     result += crate::response::SEPARATOR;
 
     call.response.bulk(result)?;
-
-    Ok(())
-}
-
-#[cfg(not(windows))]
-fn mem_command(call: &mut Call) -> CommandResult {
-    let _ = jemalloc_ctl::epoch::advance();
-
-    let allocated = jemalloc_ctl::stats::allocated::mib()
-        .and_then(|mib| mib.read())
-        .unwrap_or(0);
-    let resident = jemalloc_ctl::stats::resident::mib()
-        .and_then(|mib| mib.read())
-        .unwrap_or(0);
-
-    if call.request.parameter_count() == 1 {
-        call.response.array(2)?;
-        call.response.number(allocated as i64)?;
-        call.response.number(resident as i64)?;
-    } else {
-        let mut result = "Use 'SYS.MEM raw' to obtain the raw values.\n\n".to_owned();
-        result += format!("{:20} {:>10}\n", "Used Memory:", format_size(allocated)).as_str();
-        result += format!("{:20} {:>10}\n", "Allocated Memory:", format_size(resident)).as_str();
-
-        call.response.bulk(result)?;
-    }
 
     Ok(())
 }
@@ -296,13 +263,6 @@ mod tests {
                 query_redis_async(|con| redis::cmd("SYS.CONNECTIONS").query::<String>(con))
                     .await
                     .is_some()
-            );
-            #[cfg(not(windows))]
-            assert_eq!(
-                query_redis_async(|con| redis::cmd("SYS.MEM").query::<String>(con))
-                    .await
-                    .is_some(),
-                true
             );
 
             assert!(query_redis_async(|con| redis::cmd("SYS.SET_CONFIG")
