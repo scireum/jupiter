@@ -1,7 +1,6 @@
 /target
 jupiter-rs/target
 jupiter-io/target
-jupiter-io/repository
+jupiter-io/repository*
 jupiter-io/settings.yml
 jupiter_test_config.yml
-settings.yml

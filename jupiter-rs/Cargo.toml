@@ -41,6 +41,8 @@ async-trait = "0.1"
 fnv = "1.0"
 csv = "1.1"
 itertools = "0.10"
+tempfile = "3.3"
+zip = "0.6"
 
 [dev-dependencies]
 redis = "0.21.2"
