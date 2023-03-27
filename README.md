@@ -218,6 +218,10 @@ If all modules are enabled, the following commands are available.
 * `IDB.INDEX_OF set key1 key2 key3` reports the insertion index for each
   of the given keys using one-based indices.
 * `IDB.CARDINALITY set` reports the number of entries in the given set
+
+## PyRun Kernels
+* `PY.RUN kernel json` sends the given JSON to the given kernel and returns the result.
+* `PY.STATS` provides an overview of all active kernels.
   
 # Sources
 * The library parts can be found in [jupiter-rs](jupiter-rs)
