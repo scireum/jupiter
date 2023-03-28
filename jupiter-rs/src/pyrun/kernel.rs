@@ -160,7 +160,7 @@ fn kernel_actor(name: String, kernel_id: u8, work_dir: Arc<TempDir>) -> (Queue, 
                 }
                 Err(error) => {
                     log::error!(
-                        "Kernel {} ({}) crashed: {}",
+                        "Kernel {} ({}) crashed: {:?}",
                         kernel_state.name,
                         kernel_state.kernel_id,
                         error
