@@ -339,9 +339,16 @@ async fn loader_changed(
     let mut configs = YamlLoader::load_from_str(config_data.as_str())?;
     let config = configs.pop().unwrap_or(Yaml::Null);
 
-    let data_file = config["file"].as_str().context("")?;
-    let loader = config["loader"].as_str().context("")?;
-    let namespace = config["namespace"].as_str().context("")?.to_owned();
+    let data_file = config["file"]
+        .as_str()
+        .context("Missing 'file' in loader description!")?;
+    let loader = config["loader"]
+        .as_str()
+        .context("Missing 'loader' in loader description!")?;
+    let namespace = config["namespace"]
+        .as_str()
+        .context("Missing 'namespace' in loader description!")?
+        .to_owned();
 
     for infos in loaders.values_mut() {
         for info in infos.iter_mut() {

@@ -91,7 +91,7 @@
 //! and install it:
 //! ```no_run
 //! # use jupiter::builder::Builder;
-//! # use jupiter::repository::idb_yaml_loader::IdbYamlLoader;
+//! # use jupiter::idb::idb_yaml_loader::IdbYamlLoader;
 //! # use std::sync::Arc;
 //! # use jupiter::repository::create;
 //! # use jupiter::server::Server;
@@ -124,22 +124,13 @@ use std::time::SystemTime;
 use anyhow::Context;
 use tokio::sync::broadcast;
 
-use idb_yaml_loader::IdbYamlLoader;
-
 use crate::commands::CommandDictionary;
 use crate::platform::Platform;
 use crate::repository::foreground::ForegroundCommands;
-use crate::repository::idb_csv_loader::IdbCsvLoader;
-use crate::repository::idb_json_loader::IdbJsonLoader;
-use crate::repository::idb_yaml_set_loader::IdbYamlSetLoader;
 use crate::repository::loader::{Loader, LoaderCommands};
 
 mod background;
 mod foreground;
-pub mod idb_csv_loader;
-pub mod idb_json_loader;
-pub mod idb_yaml_loader;
-pub mod idb_yaml_set_loader;
 pub mod loader;
 
 /// Represents a file within the repository.
@@ -288,24 +279,6 @@ impl Repository {
 pub fn create(platform: &Arc<Platform>) -> Arc<Repository> {
     let repo = Arc::new(Repository::new());
     platform.register::<Repository>(repo.clone());
-
-    repo.register_loader(
-        "idb-yaml".to_owned(),
-        Arc::new(IdbYamlLoader::new(platform.clone())),
-    );
-    repo.register_loader(
-        "idb-json".to_owned(),
-        Arc::new(IdbJsonLoader::new(platform.clone())),
-    );
-    repo.register_loader(
-        "idb-csv".to_owned(),
-        Arc::new(IdbCsvLoader::new(platform.clone())),
-    );
-
-    repo.register_loader(
-        "idb-yaml-sets".to_owned(),
-        Arc::new(IdbYamlSetLoader::new(platform.clone())),
-    );
 
     repo
 }

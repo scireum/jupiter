@@ -30,5 +30,8 @@ async fn main() {
     // Setup and install a data repository...
     jupiter::repository::install(platform.clone(), jupiter::repository::create(&platform));
 
+    // Setup pyrun...
+    jupiter::pyrun::install(platform.clone());
+
     platform.require::<Server>().event_loop().await;
 }

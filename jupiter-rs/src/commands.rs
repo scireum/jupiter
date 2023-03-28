@@ -50,10 +50,10 @@
 //!         match endpoint.recv().await {
 //!             // Because of the simple implementation, we directly respond with "PONG" and perform
 //!             // the error handling / completion manually...
-//!             Some(mut call) => match call.response.simple("PONG") {
-//!                 Ok(_) => call.complete(Ok(())),
-//!                 Err(error) => call.complete(Err(CommandError::OutputError(error))),
-//!              },
+//!             Some(mut call) => {
+//!                let output_result = call.response.simple("PONG");
+//!                call.complete_output(output_result);
+//!             }
 //!              _ => return,
 //!         }
 //!     }
@@ -319,6 +319,19 @@ impl Call {
 
         if self.callback.send(result).is_err() {
             log::error!("Failed to submit a result to a oneshot callback channel!");
+        }
+    }
+
+    /// Manually completes a call by directly accepting an output result.
+    ///
+    /// Commonly, the **complete** method is used to complete a call, must probably
+    /// via (ResultExt)[ResultExt]. However, some handlers, directly complete
+    /// a call manually by invoking a method on response, which result can be
+    /// handled here.
+    pub fn complete_output(self, result: Result<(), OutputError>) {
+        match result {
+            Ok(_) => self.complete(Ok(())),
+            Err(error) => self.complete(Err(CommandError::OutputError(error))),
         }
     }
 

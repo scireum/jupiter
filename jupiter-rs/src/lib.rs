@@ -99,6 +99,7 @@ pub mod idb;
 pub mod ig;
 pub mod lru;
 pub mod platform;
+pub mod pyrun;
 pub mod repository;
 pub mod request;
 pub mod response;

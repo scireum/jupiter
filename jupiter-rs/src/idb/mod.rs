@@ -142,14 +142,23 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use crate::commands::ResultExt;
 use crate::commands::{queue, Call, CommandDictionary, CommandError, CommandResult, Endpoint};
 use crate::fmt::format_size;
+use crate::idb::idb_csv_loader::IdbCsvLoader;
+use crate::idb::idb_json_loader::IdbJsonLoader;
+use crate::idb::idb_yaml_loader::IdbYamlLoader;
+use crate::idb::idb_yaml_set_loader::IdbYamlSetLoader;
 use crate::idb::set::Set;
 use crate::idb::table::Table;
 use crate::ig::docs::{Element, Query};
 use crate::platform::Platform;
+use crate::repository::Repository;
 use crate::request::Request;
 use crate::response::Response;
 use crate::spawn;
 
+pub mod idb_csv_loader;
+pub mod idb_json_loader;
+pub mod idb_yaml_loader;
+pub mod idb_yaml_set_loader;
 pub mod set;
 pub mod table;
 pub mod trie;
@@ -263,6 +272,26 @@ pub fn install(platform: Arc<Platform>) {
             Commands::Cardinality as usize,
         );
         commands.register_command("IDB.LEN", cmd_queue, Commands::Len as usize);
+    }
+
+    if let Some(repo) = platform.find::<Repository>() {
+        repo.register_loader(
+            "idb-yaml".to_owned(),
+            Arc::new(IdbYamlLoader::new(platform.clone())),
+        );
+        repo.register_loader(
+            "idb-json".to_owned(),
+            Arc::new(IdbJsonLoader::new(platform.clone())),
+        );
+        repo.register_loader(
+            "idb-csv".to_owned(),
+            Arc::new(IdbCsvLoader::new(platform.clone())),
+        );
+
+        repo.register_loader(
+            "idb-yaml-sets".to_owned(),
+            Arc::new(IdbYamlSetLoader::new(platform.clone())),
+        );
     }
 }
 
