@@ -58,15 +58,9 @@ impl Loader for KernelLoader {
         kernel_path.push(loader_info.get_data());
 
         // We need to wrap this as spawn_blocking, as rust_bert internally uses blocking IO...
-        let directory = if kernel_path.ends_with(".zip") {
-            tokio::task::spawn_blocking(move || unzip_kernel(kernel_path))
-                .await
-                .context("Failed to extract ZIP archive!")??
-        } else {
-            copy_to_temp_dir(kernel_path)
-                .await
-                .context("Failed to copy kernel to temp dir!")?
-        };
+        let directory = tokio::task::spawn_blocking(move || unzip_kernel(kernel_path))
+            .await
+            .context("Failed to extract ZIP archive!")??;
 
         let mut kernel_file = File::open(directory.path().join("kernel.py"))
             .await
@@ -137,29 +131,6 @@ fn unzip_kernel(zip_archive: PathBuf) -> anyhow::Result<TempDir> {
     );
 
     zip.extract(kernel_directory.path())?;
-
-    Ok(kernel_directory)
-}
-
-async fn copy_to_temp_dir(original_kernel: PathBuf) -> anyhow::Result<TempDir> {
-    let mut kernel_file = File::open(original_kernel)
-        .await
-        .context("Cannot open kernel file")?;
-
-    let mut kernel_code = String::new();
-    let _ = kernel_file
-        .read_to_string(&mut kernel_code)
-        .await
-        .context("Cannot load kernel file!")?;
-
-    let kernel_directory = tempdir()?;
-    let mut file = File::create(kernel_directory.path().join("kernel.py"))
-        .await
-        .context("Failed to create kernel.py")?;
-
-    file.write_all(kernel_code.as_bytes())
-        .await
-        .context("Failed to write kernel code")?;
 
     Ok(kernel_directory)
 }
