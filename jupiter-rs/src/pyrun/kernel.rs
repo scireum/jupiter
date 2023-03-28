@@ -98,7 +98,7 @@ impl Kernel {
         self.duration.count()
     }
 
-    /// Returns how many times the kernel has been restarted due to failuers
+    /// Returns how many times the kernel has been restarted due to failures
     /// or crashes.
     pub fn forks(&self) -> usize {
         self.forks.load(Ordering::Relaxed)

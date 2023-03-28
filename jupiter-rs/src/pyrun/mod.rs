@@ -19,7 +19,7 @@
 //! to `stdin` from `stdout` of the forked process.
 //!
 //! The command `PY.RUN <kernel> <json>` can be used to execute a kernel. Note that the process
-//! itself always keeps running, so heavy-lifiing (like laoding language models) should be done
+//! itself always keeps running, so heavy-lifting (like loading language models) should be done
 //! outside of the kernel function.
 //!
 //! Using `PY.STATS` a list of all running kernels can be retrieved. This is useful for debugging
