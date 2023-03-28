@@ -124,7 +124,7 @@ pub async fn start_kernels(
 ) -> Vec<Queue> {
     let mut kernels = Vec::with_capacity(num_kernels as usize);
     for kernel_id in 0..num_kernels {
-        let (queue, kernel) = kernal_actor(name.clone(), kernel_id, temp_dir.clone());
+        let (queue, kernel) = kernel_actor(name.clone(), kernel_id, temp_dir.clone());
         kernels.push(queue);
         kernel_states.push(kernel);
     }
@@ -132,7 +132,7 @@ pub async fn start_kernels(
     kernels
 }
 
-fn kernal_actor(name: String, kernel_id: u8, work_dir: Arc<TempDir>) -> (Queue, Arc<Kernel>) {
+fn kernel_actor(name: String, kernel_id: u8, work_dir: Arc<TempDir>) -> (Queue, Arc<Kernel>) {
     let (cmd_queue, mut cmd_endpoint) = queue();
     let kernel = Arc::new(Kernel {
         name: name.clone(),
@@ -296,7 +296,6 @@ async fn handle_kernel_call(
         .await
         .context("Failed to receive answer from kernel")?;
 
-    println!("{}", watch.elapsed().as_micros());
     kernel.duration.add(watch.elapsed().as_micros() as i32);
     call.response.bulk(line.trim_end())?;
 
