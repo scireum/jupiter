@@ -199,7 +199,6 @@ async fn run_kernel(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::inherit())
         .kill_on_drop(true)
-        .env_clear()
         .current_dir(work_dir.path())
         .spawn()
         .context("Failed to start python kernel")?;
