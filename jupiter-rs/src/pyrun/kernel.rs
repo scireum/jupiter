@@ -192,7 +192,7 @@ async fn run_kernel(
     );
 
     // Actually forks the process...
-    let mut child = tokio::process::Command::new("python")
+    let mut child = tokio::process::Command::new("python3")
         .arg("-u")
         .arg("wrapper.py")
         .stdin(std::process::Stdio::piped())
