@@ -50,7 +50,7 @@ enum Commands {
     Stats,
 }
 
-/// Descibes the administrative commands supported by this actor.
+/// Describes the administrative commands supported by this actor.
 pub enum PyRunCommand {
     /// Updates or installs a new kernel which resides in the given temp dir.
     /// Next to the name, the number of parallel instances is also given.
