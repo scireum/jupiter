@@ -4,11 +4,11 @@
 //! main process via `stdin` and `stdout`. The kernel is loaded from a ZIP archive which contains
 //! the kernel code and all required resources.
 use crate::average::Average;
-use crate::commands::{queue, Queue, ResultExt};
+use crate::commands::{queue, CommandError, Queue, ResultExt};
 use crate::commands::{Call, CommandResult, Endpoint};
 use crate::fmt::format_short_duration;
 use crate::spawn;
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use arc_swap::ArcSwap;
 use std::fmt::Display;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -227,7 +227,7 @@ async fn run_kernel(
                 Some(mut call) => handle_kernel_call(&mut call, &mut stdin, &mut stdout, kernel)
                     .await
                     .complete(call),
-                            None => {
+                None => {
                     kernel.state.store(Arc::new(KernelState::Terminated));
                     let _ = stdin.write_all(b"EXIT!").await;
                     log::info!("Kernel {} ({}) is terminating...", name, kernel.kernel_id);
@@ -280,14 +280,19 @@ async fn handle_kernel_call(
         .state
         .store(Arc::new(KernelState::Running(watch, input.to_owned())));
 
-    stdin
-        .write_all(input.as_bytes())
-        .await
-        .context("Failed to send query to kernel")?;
-    let _ = stdin
-        .write(&[b'\n'])
-        .await
-        .context("Failed to submit query to kernel")?;
+    if let Err(e) = stdin.write_all(input.as_bytes()).await {
+        log::error!("Failed to send query to kernel: {:?}", e);
+        return CommandResult::Err(CommandError::ServerError(anyhow!(
+            "Failed to send query to kernel"
+        )));
+    }
+
+    if let Err(e) = stdin.write(&[b'\n']).await {
+        log::error!("Failed to send linebreak to kernel: {:?}", e);
+        return CommandResult::Err(CommandError::ServerError(anyhow!(
+            "Failed to send linebreak to kernel"
+        )));
+    }
 
     let mut line = String::new();
     let _ = stdout
