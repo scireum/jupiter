@@ -290,7 +290,11 @@ pub fn create(platform: &Arc<Platform>) -> Arc<Repository> {
 pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
     let (background_task_queue, update_notifier) = background::actor(platform.clone());
 
-    let loader_queue = loader::actor(platform.clone(), repository.clone(), background_task_queue.clone());
+    let loader_queue = loader::actor(
+        platform.clone(),
+        repository.clone(),
+        background_task_queue.clone(),
+    );
 
     let command_queue = foreground::actor(
         platform.clone(),
