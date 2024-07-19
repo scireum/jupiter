@@ -26,6 +26,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::time::SystemTime;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::mpsc;
 use yaml_rust::{Yaml, YamlLoader};
 
@@ -294,7 +295,14 @@ pub fn actor(
                                 log::error!("Failed to remove loader for deleted file {} - {:?}", file.name, e);
                             }
                         }
-                        _ => {}
+                        Err(e) => {
+                            match e {
+                                RecvError::Closed => {}
+                                RecvError::Lagged(count) => {
+                                    log::error!("{} files were not handled, because the event channel is full - {:?}", count, e);
+                                }
+                            }
+                        }
                     }
                 }
                 cmd = commands_endpoint.recv() => if let Some(mut call) = cmd {

@@ -107,9 +107,7 @@ pub fn actor(
                 },
                 update = update_notifier.recv() => {
                     match update {
-                        Some(BackgroundEvent::FileEvent(file_event)) => {
-                            let _ = repository.broadcast_sender.send(file_event);
-                        }
+                        Some(BackgroundEvent::FileEvent(file_event)) => repository.send_file_event(file_event).await,
                         Some(BackgroundEvent::FileListUpdated(new_files)) => files = new_files,
                         Some(BackgroundEvent::EpochCounter(epoch)) => background_epoch = epoch,
                         _ => {}
