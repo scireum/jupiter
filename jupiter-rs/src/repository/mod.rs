@@ -298,8 +298,8 @@ pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
 
     let command_queue = foreground::actor(
         platform.clone(),
-        repository.clone(),
-        background_task_queue.clone(),
+        repository,
+        background_task_queue,
         update_notifier,
     );
 
