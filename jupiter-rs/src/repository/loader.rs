@@ -256,11 +256,12 @@ pub fn actor(
     mut background_task_sender: mpsc::Sender<BackgroundCommand>,
 ) -> Queue {
     let (command_queue, mut commands_endpoint) = queue();
+    let mut listener = repository.listener();
+
     spawn!(async move {
         use crate::commands::ResultExt;
 
         let mut loaders = HashMap::new();
-        let mut listener = repository.listener();
         let config = platform.require::<Config>();
         let mut config_changed_flag = config.notifier();
         let mut namespaces = load_namespaces(&config);

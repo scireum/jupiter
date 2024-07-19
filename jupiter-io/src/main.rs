@@ -24,14 +24,17 @@ async fn main() {
     // Setup and enable the LRU cache...
     jupiter::lru::cache::install(platform.clone());
 
-    // Setup and install a data repository...
-    jupiter::repository::install(platform.clone(), jupiter::repository::create(&platform));
+    // Setup a data repository...
+    let repository = jupiter::repository::create(&platform);
 
     // Setup and enable InfoGraphDB...
     jupiter::idb::install(platform.clone());
 
     // Setup pyrun...
     jupiter::pyrun::install(platform.clone());
+
+    // Finally install the data repository after all other actors have registered their loaders
+    jupiter::repository::install(platform.clone(), repository);
 
     platform.require::<Server>().event_loop().await;
 }

@@ -289,14 +289,19 @@ pub fn create(platform: &Arc<Platform>) -> Arc<Repository> {
 /// perform the initial repository scan to determine what contents are already available.
 pub fn install(platform: Arc<Platform>, repository: Arc<Repository>) {
     let (background_task_queue, update_notifier) = background::actor(platform.clone());
-    let command_queue = foreground::actor(
+
+    let loader_queue = loader::actor(
         platform.clone(),
         repository.clone(),
         background_task_queue.clone(),
-        update_notifier,
     );
 
-    let loader_queue = loader::actor(platform.clone(), repository, background_task_queue);
+    let command_queue = foreground::actor(
+        platform.clone(),
+        repository,
+        background_task_queue,
+        update_notifier,
+    );
 
     if let Some(commands) = platform.find::<CommandDictionary>() {
         commands.register_command(
