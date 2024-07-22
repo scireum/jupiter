@@ -119,7 +119,7 @@ use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use anyhow::Context;
 use tokio::sync::broadcast;
@@ -128,6 +128,8 @@ use crate::commands::CommandDictionary;
 use crate::platform::Platform;
 use crate::repository::foreground::ForegroundCommands;
 use crate::repository::loader::{Loader, LoaderCommands};
+
+const FILE_EVENT_BROADCAST_BUFFER_SIZE: usize = 128;
 
 mod background;
 mod foreground;
@@ -199,7 +201,7 @@ pub struct Repository {
 
 impl Repository {
     fn new() -> Self {
-        let (broadcast_sender, _) = broadcast::channel(128);
+        let (broadcast_sender, _) = broadcast::channel(FILE_EVENT_BROADCAST_BUFFER_SIZE);
 
         Repository {
             broadcast_sender,
@@ -267,6 +269,23 @@ impl Repository {
 
     fn listener(&self) -> FileEventReceiver {
         self.broadcast_sender.subscribe()
+    }
+
+    async fn send_file_event(&self, file_event: FileEvent) {
+        let mut attempt = 0;
+
+        while self.broadcast_sender.len() >= FILE_EVENT_BROADCAST_BUFFER_SIZE && attempt < 10 {
+            attempt += 1;
+
+            log::debug!(
+                "Pausing sending file events for 1 second because the broadcast buffer is full (Attempt {} of 10)",
+                attempt
+            );
+
+            tokio::time::sleep(Duration::from_secs(1)).await;
+        }
+
+        let _ = self.broadcast_sender.send(file_event);
     }
 }
 
