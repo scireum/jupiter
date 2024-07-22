@@ -295,11 +295,11 @@ pub fn actor(
                                 log::error!("Failed to remove loader for deleted file {} - {:?}", file.name, e);
                             }
                         }
-                        Err(e) => {
-                            match e {
+                        Err(error) => {
+                            match error {
                                 RecvError::Closed => {}
                                 RecvError::Lagged(count) => {
-                                    log::error!("{} files were not handled, because the event channel is full - {:?}", count, e);
+                                    log::error!("{} files were not handled, because the event channel is full - {:?}", count, error);
                                 }
                             }
                         }
