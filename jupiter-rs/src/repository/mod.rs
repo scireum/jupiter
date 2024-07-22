@@ -272,12 +272,17 @@ impl Repository {
     }
 
     async fn send_file_event(&self, file_event: FileEvent) {
-        if self.broadcast_sender.len() >= FILE_EVENT_BROADCAST_BUFFER_SIZE {
+        let mut attempt = 0;
+
+        while self.broadcast_sender.len() >= FILE_EVENT_BROADCAST_BUFFER_SIZE && attempt < 10 {
+            attempt += 1;
+
             log::debug!(
-                "Pausing sending file events for 2 seconds because the broadcast buffer is full"
+                "Pausing sending file events for 1 second because the broadcast buffer is full (Attempt {} of 10)",
+                attempt
             );
 
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            tokio::time::sleep(Duration::from_secs(1)).await;
         }
 
         let _ = self.broadcast_sender.send(file_event);
