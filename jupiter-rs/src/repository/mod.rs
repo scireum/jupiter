@@ -815,7 +815,8 @@ mod tests {
                 if let Err(e) = server.await {
                     panic!("server error: {}", e);
                 }
-            });
+            })
+            .await;
 
             let (platform, repository) = setup_env().await;
             let mut listener = repository.listener();
