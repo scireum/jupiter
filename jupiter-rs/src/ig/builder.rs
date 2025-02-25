@@ -112,7 +112,7 @@ pub struct ObjectBuilder<'a> {
     map: SymbolMap<Node>,
 }
 
-impl<'a> ObjectBuilder<'a> {
+impl ObjectBuilder<'_> {
     /// Places an integer value within the object being built.
     ///
     /// # Errors

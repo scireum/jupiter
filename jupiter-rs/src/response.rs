@@ -116,7 +116,7 @@ impl Response {
         *current_nesting -= 1;
         match *current_nesting {
             nesting if nesting > 0 => Ok(()),
-            nesting if nesting == 0 => {
+            0 => {
                 let _ = self.nesting.pop();
                 Ok(())
             }

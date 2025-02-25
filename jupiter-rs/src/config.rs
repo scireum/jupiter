@@ -263,7 +263,7 @@ impl Config {
 
         // Store update config...
         self.config.store(Arc::new((
-            docs.get(0).unwrap_or(&Yaml::Null).clone(),
+            docs.first().unwrap_or(&Yaml::Null).clone(),
             last_modified,
         )));
 

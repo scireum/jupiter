@@ -23,7 +23,7 @@
 //!
 //! To create a **Doc** programmatically, a [DocBuilder](builder::DocBuilder) can be used.
 //!
-//! Also there are helpers to read common data formats:
+//! Also, there are helpers to read common data formats:
 //! * **YAML**: [hash_to_doc](yaml::hash_to_doc) or [list_to_doc](yaml::list_to_doc)
 //! * **JSON**: [object_to_doc](json::object_to_doc) or [list_to_doc](json::list_to_doc)
 //! * **XML**: [PullReader](xml::PullReader)
@@ -36,22 +36,22 @@
 //! are applied:
 //!
 //! 1) **Small string optimizations**: Strings which are rather short, are stored in place instead
-//! of using a classic `String`. Note that if the value doesn't fit in place, we still only store
-//! a pointer to a `[u8]` instead of a whole `Vec<u8>` which saves 8 bytes for the skipped
-//! capacity field (which isn't required as the strings are immutable anyway).
+//!    of using a classic `String`. Note that if the value doesn't fit in place, we still only store
+//!    a pointer to a `[u8]` instead of a whole `Vec<u8>` which saves 8 bytes for the skipped
+//!    capacity field (which isn't required as the strings are immutable anyway).
 //!
 //! 2) **Compression via SymbolTable**: As the keys in objects are most probably repeated very often
-//! we store the strings in a symbol table and only carry an `i32` along.Think if a list of 1000
-//! object which all look like `{ Foo: 42, Bar: 24 }`. Instead of storing the strings repeatedly,
-//! we have a symbol table: `{'Foo': 1, 'Bar': 2}` accompanied with a lookup table
-//! `[ 'Foo', 'Bar' ]`. The object itself is stored as `{1: 42, 2: 24}`.
+//!    we store the strings in a symbol table and only carry an `i32` along.Think if a list of 1000
+//!    object which all look like `{ Foo: 42, Bar: 24 }`. Instead of storing the strings repeatedly,
+//!    we have a symbol table: `{'Foo': 1, 'Bar': 2}` accompanied by a lookup table
+//!    `[ 'Foo', 'Bar' ]`. The object itself is stored as `{1: 42, 2: 24}`.
 //!
 //! 3) **Optimized object representation**: Objects are maps which map Symbols (`i32`) to
-//! **nodes**. As many objects only contain a few entries, using a `HashMap` would be
-//! quite an overkill (and slow). Therefore we use a `Vec<(Symbol, Node)>` with a small initial
-//! capacity. This provides quite a compact memory layout which is very fast due to its efficient
-//! usage of L1 cache. We also sort entries by their `Symbol` so that we can use a binary search
-//! when looking up an entry.
+//!    **nodes**. As many objects only contain a few entries, using a `HashMap` would be
+//!    quite an overkill (and slow). Therefore, we use a `Vec<(Symbol, Node)>` with a small initial
+//!    capacity. This provides quite a compact memory layout which is very fast due to its efficient
+//!    usage of L1 cache. We also sort entries by their `Symbol` so that we can use a binary search
+//!    when looking up an entry.
 //!
 //! # Data Layout
 //!
