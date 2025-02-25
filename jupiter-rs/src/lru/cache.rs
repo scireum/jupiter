@@ -581,7 +581,7 @@ mod tests {
     use crate::commands::{CommandDictionary, Dispatcher};
     use crate::config::Config;
     use crate::request::Request;
-    use mock_instant::MockClock;
+    use mock_instant::global::MockClock;
     use std::time::Duration;
 
     /// Tests if commands yield the expected responses.

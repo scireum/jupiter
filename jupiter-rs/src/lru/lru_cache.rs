@@ -6,7 +6,7 @@
 //! It also supports refreshing data in a lazy manner using [extended_get](LruCache::extended_get)
 //! and flushing the cache by secondary keys via [remove_by_secondary](LruCache::remove_by_secondary).
 #[cfg(test)]
-use mock_instant::Instant;
+use mock_instant::global::Instant;
 #[cfg(not(test))]
 use std::time::Instant;
 
@@ -803,7 +803,7 @@ impl<V: ByteSize> LruCache<V> {
 #[cfg(test)]
 mod tests {
     use crate::lru::LruCache;
-    use mock_instant::MockClock;
+    use mock_instant::global::MockClock;
     use tokio::time::Duration;
 
     #[test]
