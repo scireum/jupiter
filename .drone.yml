@@ -22,6 +22,7 @@ steps:
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
+      - rustc --version
       - cd jupiter-rs
       - cargo build
       - cd ..
@@ -40,6 +41,7 @@ steps:
       - export RUSTFLAGS="-Dwarnings"
       - rustup component add rustfmt
       - rustup component add clippy
+      - rustc --version
       - cd jupiter-rs
       - cargo fmt -- --check
       - cargo clippy -- -D warnings
@@ -57,6 +59,7 @@ steps:
       - export RUSTFLAGS="-Dwarnings"
       - rustup component add rustfmt
       - rustup component add clippy
+      - rustc --version
       - "sed -i 's/0.0.1/${DRONE_TAG}/g' jupiter-rs/Cargo.toml"
       - "sed -i 's/DEVELOPMENT-SNAPSHOT/${DRONE_TAG}/g' jupiter-rs/src/lib.rs"
       - "sed -i 's/NO-REVISION/${DRONE_COMMIT_SHA}/g' jupiter-rs/src/lib.rs"
