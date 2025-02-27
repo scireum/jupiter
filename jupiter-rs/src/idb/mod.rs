@@ -64,7 +64,7 @@
 //!   See `IDB.LOOKUP` for details when this is case-sensitive and when it isn't.
 //! * **IDB.QUERY**: `IDB.QUERY table num_skip max_results search_path filter_value path1`
 //!   Behaves just like lookup, but doesn't just return the first result, but skips over the first
-//!  `num_skip` results and then outputs up to `max_result` rows. Not that this is again limited to
+//!   `num_skip` results and then outputs up to `max_result` rows. Not that this is again limited to
 //!   at most **1000**.
 //!   See `IDB.LOOKUP` for details when this is case-sensitive and when it isn't.
 //! * **IDB.IQUERY**: `IDB.QUERY table primary_lang fallback_lang num_skip max_results search_path filter_value path1`
@@ -999,7 +999,7 @@ name: Test
             })
             .await
             .unwrap();
-            assert_eq!(result.is_empty(), true);
+            assert!(result.is_empty());
 
             // Ensure that querying "." returns the whole element as JSON...
             let result = query_redis_async(|con| {

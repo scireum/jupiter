@@ -79,7 +79,7 @@ impl SymbolTable {
         let value = string.as_ref();
         if let Some(symbol) = self.table.get(value) {
             Ok(*symbol)
-        } else if self.symbols.len() >= std::i32::MAX as usize {
+        } else if self.symbols.len() >= i32::MAX as usize {
             Err(anyhow::anyhow!("Symbol table overflow!"))
         } else {
             let new_symbol = (self.symbols.len() + 1) as i32;

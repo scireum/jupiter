@@ -379,6 +379,7 @@ mod tests {
     use crate::platform::Platform;
     use crate::repository::{FileEvent, FileEventReceiver, Repository};
     use crate::server::Server;
+    use crate::spawn;
     use crate::testing::{query_redis_async, test_async};
     use chrono::{TimeZone, Utc};
     use hyper::header::HeaderValue;
@@ -590,7 +591,7 @@ mod tests {
             // The loader is present, but not active, as the namespace is missing...
             let repo_contents = fetch_loaders().await;
             assert_eq!(repo_contents[0][0].1, "test.yml");
-            assert_eq!(repo_contents[0][0].3, false);
+            assert!(!repo_contents[0][0].3);
 
             // ------------------------------------------------------------------------------------
 
@@ -642,7 +643,7 @@ mod tests {
             let repo_contents = fetch_loaders().await;
             assert_eq!(repo_contents.len(), 2);
             assert_eq!(repo_contents[1][0].0, "test1.yml");
-            assert_eq!(repo_contents[1][0].3, true);
+            assert!(repo_contents[1][0].3);
 
             // ------------------------------------------------------------------------------------
 
@@ -712,7 +713,7 @@ mod tests {
             // And also ensure that the file has been picked up...
             let repo_contents = fetch_loaders().await;
             assert_eq!(repo_contents[0][0].1, "test.yml");
-            assert_eq!(repo_contents[0][0].3, true);
+            assert!(repo_contents[0][0].3);
             // Ensure that the "last_load" timestamp changed...
             assert_ne!(&repo_contents[0][0].4, last_load);
 
@@ -738,7 +739,7 @@ mod tests {
             // Now the loader should be disabled again...
             let repo_contents = fetch_loaders().await;
             assert_eq!(repo_contents[0][0].1, "test.yml");
-            assert_eq!(repo_contents[0][0].3, false);
+            assert!(!repo_contents[0][0].3);
 
             // ------------------------------------------------------------------------------------
 
@@ -791,7 +792,7 @@ mod tests {
             );
         }
 
-        Ok(response.into())
+        Ok(response)
     }
 
     #[test]
@@ -803,7 +804,7 @@ mod tests {
         log::info!("Successfully acquired shared resources.");
 
         test_async(async {
-            let _ = tokio::spawn(async {
+            spawn!(async {
                 let server_addr: SocketAddr = "127.0.0.1:7979"
                     .parse::<SocketAddr>()
                     .expect("Unable to parse socket address");

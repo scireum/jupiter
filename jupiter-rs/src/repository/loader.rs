@@ -540,8 +540,8 @@ fn list_command(call: &mut Call, loaders: &HashMap<String, Vec<LoaderInfo>>) -> 
         call.response.array(all_loaders.len() as i32)?;
         for loader in all_loaders {
             call.response.array(6)?;
-            call.response.simple(&loader.loader_file_name())?;
-            call.response.simple(&loader.file_name())?;
+            call.response.simple(loader.loader_file_name())?;
+            call.response.simple(loader.file_name())?;
             call.response.simple(&loader.namespace)?;
             call.response.boolean(loader.enabled)?;
             if let Some(last_load) = loader.last_load {

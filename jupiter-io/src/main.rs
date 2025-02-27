@@ -30,9 +30,6 @@ async fn main() {
     // Setup and enable InfoGraphDB...
     jupiter::idb::install(platform.clone());
 
-    // Setup pyrun...
-    jupiter::pyrun::install(platform.clone());
-
     // Finally install the data repository after all other actors have registered their loaders
     jupiter::repository::install(platform.clone(), repository);
 
