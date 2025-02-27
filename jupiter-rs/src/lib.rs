@@ -114,8 +114,8 @@ pub const JUPITER_REVISION: &str = "NO-REVISION";
 
 /// Initializes the logging system.
 ///
-/// Note that most probably the simplest way is to use a [Builder](builder::Builder) to setup the
-/// framework, which will also setup logging if enabled.
+/// Note that most probably the simplest way is to use a [Builder](builder::Builder) to set up the
+/// framework, which will also set up logging if enabled.
 pub fn init_logging() {
     static INIT_LOGGING: Once = Once::new();
 
