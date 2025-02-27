@@ -347,6 +347,7 @@ fn run_config_change_monitor(platform: Arc<Platform>, config: Arc<Config>) {
 #[cfg(test)]
 mod tests {
     use crate::platform::Platform;
+    use crate::spawn;
     use std::time::SystemTime;
 
     #[test]
@@ -360,13 +361,12 @@ mod tests {
                 .load_from_string("test: 42", Some(SystemTime::now()))
                 .unwrap();
 
-            // Setup a task which notifies our oneshot channel once the config changes...
+            // Set up a task which notifies our oneshot channel once the config changes...
             let mut change_notifier = config.notifier();
             let (tx, rx) = tokio::sync::oneshot::channel();
-            let _ = tokio::spawn(async move {
-                match change_notifier.recv().await {
-                    Ok(_) => tx.send(()).unwrap(),
-                    _ => (),
+            spawn!(async move {
+                if change_notifier.recv().await.is_ok() {
+                    tx.send(()).unwrap()
                 };
             });
 
@@ -374,12 +374,9 @@ mod tests {
             assert_eq!(config.current().config()["test"].as_i64().unwrap(), 42);
 
             // Ensure that a malformed config is simply ignored...
-            assert_eq!(
-                config
-                    .load_from_string("test: 'invalid", Some(SystemTime::now()))
-                    .is_err(),
-                true
-            );
+            assert!(config
+                .load_from_string("test: 'invalid", Some(SystemTime::now()))
+                .is_err());
 
             // Ensure that initial config is still present...
             assert_eq!(config.current().config()["test"].as_i64().unwrap(), 42);

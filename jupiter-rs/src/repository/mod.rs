@@ -379,6 +379,7 @@ mod tests {
     use crate::platform::Platform;
     use crate::repository::{FileEvent, FileEventReceiver, Repository};
     use crate::server::Server;
+    use crate::spawn;
     use crate::testing::{query_redis_async, test_async};
     use chrono::{TimeZone, Utc};
     use hyper::header::HeaderValue;
@@ -803,7 +804,7 @@ mod tests {
         log::info!("Successfully acquired shared resources.");
 
         test_async(async {
-            let _ = tokio::spawn(async {
+            spawn!(async {
                 let server_addr: SocketAddr = "127.0.0.1:7979"
                     .parse::<SocketAddr>()
                     .expect("Unable to parse socket address");
@@ -815,8 +816,7 @@ mod tests {
                 if let Err(e) = server.await {
                     panic!("server error: {}", e);
                 }
-            })
-            .await;
+            });
 
             let (platform, repository) = setup_env().await;
             let mut listener = repository.listener();
