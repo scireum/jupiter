@@ -261,7 +261,7 @@ impl Server {
     /// The task of this loop is to bind the server socket to the specified address. Once this was
     /// successful, we enter the [server_loop](Server::server_loop) to actually handle incoming
     /// connections. Once this loop returns, either the platform is no longer running and we should
-    /// exit, or the config has changed and we should try to bind the server to the new address.
+    /// exit, or the config has changed, and we should try to bind the server to the new address.
     pub async fn event_loop(&self) {
         let mut address = String::new();
         let mut last_bind_error_reported = Instant::now();

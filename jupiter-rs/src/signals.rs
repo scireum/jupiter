@@ -31,7 +31,7 @@ pub fn install(platform: Arc<Platform>) {
 /// Installs a signal handler for the given platform which awaits a **CTRL+C**.
 #[cfg(windows)]
 pub fn install(platform: Arc<Platform>) {
-    let _ = tokio::spawn(async move {
+    spawn!(async move {
         let ctrl_c = tokio::signal::ctrl_c();
 
         tokio::select! {

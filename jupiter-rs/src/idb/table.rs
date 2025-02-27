@@ -557,7 +557,7 @@ impl<'a> Iterator for TableIter<'a> {
     }
 }
 
-impl<'a> TableIter<'a> {
+impl TableIter<'_> {
     /// Checks if for the given row any of the given fields or paths contains the given value.
     fn has_match(row: Element, fields: &[Query], value: &str) -> bool {
         let mut matching = false;

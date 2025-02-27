@@ -35,20 +35,21 @@
 //!
 //! # Features
 //! * **Ultra fast non allocating parser for RESP queries** (as sent by redis-cli and redis clients).
-//! The built-in server will use a single buffer per connection to read, parse and process queries.
-//! To deliver a response, a single buffer is allocated to buffer the response to minimize the
-//! number of required sys-calls to write a response on the wire.
+//!   The built-in server will use a single buffer per connection to read, parse and process queries.
+//!   To deliver a response, a single buffer is allocated to buffer the response to minimize the
+//!   number of required sys-calls to write a response on the wire.
 //! * **100% Async/Await** - the whole server builds upon [tokio](https://tokio.rs/) and async/await
-//! primitives as provided by Rust. Also, all commands handlers are build as actors to simplify
-//! concurrency correctness and to also minimize any synchronization overheads.
+//!   primitives as provided by Rust. Also, all commands handlers are build as actors to simplify
+//!   concurrency correctness and to also minimize any synchronization overheads.
 //! * **Reload-aware config facility** which permits to update the configuration during operation.
-//! Therefore no restart is ever required, even when changing the IP binding or port. This is kind
-//! of important for a in-memory application which might have an expensive startup time.
-//! * **Build in management commands**. The *core* module provides a set of management commands to monitor
-//! and inspect the state of the system.
-//! * **Simple and well documented code base**. After all, Jupiter isn't a large framework at all. This permits
-//! every user to browse and understand its source code and when to expect from the system. Also this is due to
-//! the fact that Jupiter stands on the shoulders of giants (especially [tokio](https://tokio.rs/)).
+//!   Therefore, no restart is ever required, even when changing the IP binding or port. This is
+//!   kind of important for an in-memory application which might have an expensive startup time.
+//! * **Build in management commands**. The *core* module provides a set of management commands to
+//!   monitor and inspect the state of the system.
+//! * **Simple and well documented code base**. After all, Jupiter isn't a large framework at all.
+//!   This permits every user to browse and understand its source code and when to expect from the
+//!   system. Also, this is due to the fact that Jupiter stands on the shoulders of giants
+//!   (especially [tokio](https://tokio.rs/)).
 //!
 //! # Modules
 //! * **LRU-Cache**: An size constraint cache with an intelligent refresh strategy which can be used
@@ -99,7 +100,6 @@ pub mod idb;
 pub mod ig;
 pub mod lru;
 pub mod platform;
-pub mod pyrun;
 pub mod repository;
 pub mod request;
 pub mod response;
@@ -114,8 +114,8 @@ pub const JUPITER_REVISION: &str = "NO-REVISION";
 
 /// Initializes the logging system.
 ///
-/// Note that most probably the simplest way is to use a [Builder](builder::Builder) to setup the
-/// framework, which will also setup logging if enabled.
+/// Note that most probably the simplest way is to use a [Builder](builder::Builder) to set up the
+/// framework, which will also set up logging if enabled.
 pub fn init_logging() {
     static INIT_LOGGING: Once = Once::new();
 
@@ -189,7 +189,7 @@ mod testing {
     /// Executes a blocking Redis query in an async fashion.
     ///
     /// This is required as we must not block tokio in any way. Note that the redis create itself
-    /// would permits async queries, however, this seems to rely on a previous version of tokio
+    /// would permit async queries, however, this seems to rely on a previous version of tokio
     /// which crashes with our version (tokio 1.0.0).
     pub async fn query_redis_async<T, Q>(query: Q) -> Option<T>
     where

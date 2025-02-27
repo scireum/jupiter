@@ -6,7 +6,7 @@
 //! It also supports refreshing data in a lazy manner using [extended_get](LruCache::extended_get)
 //! and flushing the cache by secondary keys via [remove_by_secondary](LruCache::remove_by_secondary).
 #[cfg(test)]
-use mock_instant::Instant;
+use mock_instant::thread_local::Instant;
 #[cfg(not(test))]
 use std::time::Instant;
 
@@ -803,7 +803,7 @@ impl<V: ByteSize> LruCache<V> {
 #[cfg(test)]
 mod tests {
     use crate::lru::LruCache;
-    use mock_instant::MockClock;
+    use mock_instant::thread_local::MockClock;
     use tokio::time::Duration;
 
     #[test]
@@ -1005,10 +1005,10 @@ mod tests {
             .unwrap();
 
         // Perform 4 reads, of which 3 hit a cache entry...
-        assert_eq!(lru.get("A").is_some(), true);
-        assert_eq!(lru.get("B").is_some(), true);
-        assert_eq!(lru.get("C").is_some(), true);
-        assert_eq!(lru.get("D").is_none(), true);
+        assert!(lru.get("A").is_some());
+        assert!(lru.get("B").is_some());
+        assert!(lru.get("C").is_some());
+        assert!(lru.get("D").is_none());
 
         // ... therefore we hat 3 writes, 4 reads of which 3 hit a value which
         // yields a hit rate of 75%
@@ -1017,9 +1017,9 @@ mod tests {
         assert_eq!(lru.hit_rate().round() as i32, 75);
 
         // Perform 3 more reads..
-        assert_eq!(lru.get("A").is_some(), true);
-        assert_eq!(lru.get("B").is_some(), true);
-        assert_eq!(lru.get("C").is_some(), true);
+        assert!(lru.get("A").is_some());
+        assert!(lru.get("B").is_some());
+        assert!(lru.get("C").is_some());
 
         // we've now had 7 reads and 3 writes. This yields a write/read ratio of
         // 30% (3 of 10 total operation were writes...)
@@ -1030,8 +1030,8 @@ mod tests {
         assert_eq!(lru.allocated_memory(), 7);
 
         // We cannot compute the total allocated memory correctly, but we can at least perform
-        // a sanity check here..
-        assert_eq!(lru.total_allocated_memory() > lru.allocated_memory(), true);
+        // a sanity check here...
+        assert!(lru.total_allocated_memory() > lru.allocated_memory());
 
         // The cache contains 3 entries and has a capacity of 4 -> 75% utilization...
         assert_eq!(lru.utilization().round() as i32, 75);

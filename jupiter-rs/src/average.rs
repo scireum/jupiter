@@ -103,7 +103,7 @@ impl Average {
         sum += value;
         count += 1;
 
-        let next_sum_and_count = (sum as u64 & 0xFFFFFFFF) << 32 | (count as u64 & 0xFFFFFFFF);
+        let next_sum_and_count = ((sum as u64 & 0xFFFFFFFF) << 32) | (count as u64 & 0xFFFFFFFF);
         self.sum_and_count
             .store(next_sum_and_count, Ordering::Relaxed);
     }

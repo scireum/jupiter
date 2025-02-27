@@ -13,4 +13,4 @@ codegen-units = 1
 
 [dependencies]
 jupiter = { path = "../jupiter-rs" }
-tokio = { version = "1.23", features = ["full"] }
+tokio = { version = "1.43", features = ["full"] }

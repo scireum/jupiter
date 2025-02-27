@@ -488,7 +488,7 @@ impl<B: BufRead> Drop for Element<'_, B> {
     }
 }
 
-impl<'a> AttributeView<'a> {
+impl AttributeView<'_> {
     /// Returns the name of the attribute.
     pub fn key(&self) -> Cow<str> {
         self.encoding.decode(self.attribute.key).0
@@ -523,7 +523,7 @@ impl<'a> Iterator for AttributesView<'a> {
     }
 }
 
-impl<'a> Text<'a> {
+impl Text<'_> {
     /// Returns the decoded text contents of this text element.
     pub fn contents(&self) -> Cow<str> {
         self.encoding.decode(self.data.as_ref()).0

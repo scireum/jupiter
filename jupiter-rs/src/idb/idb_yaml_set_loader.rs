@@ -50,9 +50,9 @@ impl Loader for IdbYamlSetLoader {
         let mut rows = yaml_rust::YamlLoader::load_from_str(data.as_str())
             .context("Cannot parse the given YAML data.")?;
 
-        // If only one yaml object is present and it's an array -> unwrap it. This was most probably
+        // If only one yaml object is present, and it's an array -> unwrap it. This was most probably
         // a JSON file like [{obj1}, {obj2}...]...
-        if rows.len() == 1 && rows.get(0).unwrap().is_array() {
+        if rows.len() == 1 && rows.first().unwrap().is_array() {
             rows = rows.remove(0).into_vec().unwrap();
         }
 
