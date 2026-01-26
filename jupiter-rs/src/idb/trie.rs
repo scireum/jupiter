@@ -205,7 +205,7 @@ impl<T> Trie<T> {
     /// assert_eq!(trie.query("a").next().unwrap(), &1);
     /// assert_eq!(trie.query("unknown").next().is_none(), true);
     /// ```
-    pub fn query(&self, query: impl AsRef<str>) -> OptionalIter<T> {
+    pub fn query(&'_ self, query: impl AsRef<str>) -> OptionalIter<'_, T> {
         if let Some(values) = self.query_values(query) {
             OptionalIter::Found(values.iter())
         } else {
@@ -227,7 +227,7 @@ impl<T> Trie<T> {
     /// let results: Vec<&i32> = trie.prefix_query("abc").collect();
     /// assert_eq!(results, vec![&1, &2, &3]);
     /// ```
-    pub fn prefix_query(&self, prefix: &str) -> PrefixIter<T> {
+    pub fn prefix_query(&'_ self, prefix: &str) -> PrefixIter<'_, T> {
         let mut node = &self.root;
 
         // Finding the "end node" of the prefix is pretty much the same as performing a
