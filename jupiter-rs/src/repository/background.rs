@@ -520,9 +520,7 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         response
             .into_body()
             .map(|result| {
-                result.map_err(|error| {
-                    std::io::Error::new(std::io::ErrorKind::Other, format!("Error: {}", error))
-                })
+                result.map_err(|error| std::io::Error::other(format!("Error: {}", error)))
             })
             .into_async_read(),
     );
