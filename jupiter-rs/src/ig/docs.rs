@@ -96,7 +96,7 @@ impl Doc {
     ///
     /// assert_eq!(root.len(), 1)
     /// ```
-    pub fn root(&self) -> Element {
+    pub fn root(&'_ self) -> Element<'_> {
         Element {
             doc: self,
             node: &self.root,
@@ -285,7 +285,7 @@ impl<'a> Element<'a> {
     /// assert_eq!(doc.root().at(1).to_str().as_ref(), "true");
     /// assert_eq!(doc.root().at(2).to_str().as_ref(), "42");
     /// ```
-    pub fn to_str(&self) -> Cow<str> {
+    pub fn to_str(&'_ self) -> Cow<'_, str> {
         match self.node {
             Node::InlineString(str) => Cow::Borrowed(str.as_ref()),
             Node::BoxedString(str) => Cow::Borrowed(str.as_ref()),

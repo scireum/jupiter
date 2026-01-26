@@ -236,7 +236,7 @@ impl<B: BufRead> Element<'_, B> {
     /// let mut reader = PullReader::new("<xml></xml>".as_bytes());
     /// assert_eq!(reader.root().unwrap().name().as_ref(), "xml");
     /// ```
-    pub fn name(&self) -> Cow<str> {
+    pub fn name(&'_ self) -> Cow<'_, str> {
         self.reader.decode(self.data.name())
     }
 
@@ -251,7 +251,7 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(attr.key(), "test");
     /// assert_eq!(attr.value().unwrap().contents().as_ref(), "foo");
     /// ```
-    pub fn attributes(&self) -> AttributesView {
+    pub fn attributes(&'_ self) -> AttributesView<'_> {
         AttributesView {
             encoding: self.reader.encoding(),
             attributes: self.data.attributes(),
@@ -268,9 +268,9 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(root.find_attribute("test").unwrap().unwrap().value().unwrap().contents().as_ref(), "foo");
     /// ```
     pub fn find_attribute(
-        &self,
+        &'_ self,
         name: impl AsRef<str>,
-    ) -> quick_xml::Result<Option<AttributeView>> {
+    ) -> quick_xml::Result<Option<AttributeView<'_>>> {
         for attribute in self.attributes() {
             match attribute {
                 Ok(attribute) => {
@@ -431,7 +431,7 @@ impl<B: BufRead> Element<'_, B> {
     /// let mut test = root.next_child().unwrap().unwrap();
     /// assert_eq!(test.text().unwrap().contents().as_ref(), "");
     /// ```
-    pub fn text(&mut self) -> quick_xml::Result<Text> {
+    pub fn text(&'_ mut self) -> quick_xml::Result<Text<'_>> {
         let encoding = self.reader.encoding();
         match self.try_text() {
             Ok(Some(text)) => Ok(text),
@@ -490,12 +490,12 @@ impl<B: BufRead> Drop for Element<'_, B> {
 
 impl AttributeView<'_> {
     /// Returns the name of the attribute.
-    pub fn key(&self) -> Cow<str> {
+    pub fn key(&'_ self) -> Cow<'_, str> {
         self.encoding.decode(self.attribute.key).0
     }
 
     /// Returns the text contents of the attribute.
-    pub fn value(&self) -> quick_xml::Result<Text> {
+    pub fn value(&'_ self) -> quick_xml::Result<Text<'_>> {
         Ok(Text {
             handle: None,
             buffer_manager: None,
@@ -525,7 +525,7 @@ impl<'a> Iterator for AttributesView<'a> {
 
 impl Text<'_> {
     /// Returns the decoded text contents of this text element.
-    pub fn contents(&self) -> Cow<str> {
+    pub fn contents(&'_ self) -> Cow<'_, str> {
         self.encoding.decode(self.data.as_ref()).0
     }
 }

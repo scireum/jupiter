@@ -381,7 +381,7 @@ impl<V: Default> SymbolMap<V> {
     /// let string = map.entries().map(|(key, value)| format!("{}: {}", key, value)).join(", ");
     /// assert_eq!(string, "42: Hello, 99: World");
     /// ```
-    pub fn entries(&self) -> Iter<(Symbol, V)> {
+    pub fn entries(&'_ self) -> Iter<'_, (Symbol, V)> {
         self.entries.iter()
     }
 }
