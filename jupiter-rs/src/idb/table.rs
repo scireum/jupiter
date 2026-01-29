@@ -424,7 +424,7 @@ impl Table {
     }
 
     /// Performs a table scan which simply iterates over all rows of a table.
-    pub fn table_scan(&self) -> TableIter {
+    pub fn table_scan(&'_ self) -> TableIter<'_> {
         self.scans
             .store(self.scans.load(Ordering::Relaxed) + 1, Ordering::Relaxed);
 

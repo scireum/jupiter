@@ -170,7 +170,7 @@ impl LoaderInfo {
     }
 
     /// Extracts the name of the file used to configure the loader.
-    pub fn loader_file_name(&self) -> Cow<str> {
+    pub fn loader_file_name(&'_ self) -> Cow<'_, str> {
         if let Some(name) = self.loader_file.file_name() {
             name.to_string_lossy()
         } else {
@@ -179,7 +179,7 @@ impl LoaderInfo {
     }
 
     /// Extracts the name of the file being loaded.
-    pub fn file_name(&self) -> Cow<str> {
+    pub fn file_name(&'_ self) -> Cow<'_, str> {
         if let Some(name) = self.data_file.file_name() {
             name.to_string_lossy()
         } else {

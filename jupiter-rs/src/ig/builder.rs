@@ -76,7 +76,7 @@ impl DocBuilder {
     ///
     /// We need a factory function here, so that we can access the shared symbol table and therefore
     /// provide convenience methods like **put_string**.
-    pub fn obj(&self) -> ObjectBuilder {
+    pub fn obj(&'_ self) -> ObjectBuilder<'_> {
         ObjectBuilder {
             doc_builder: self,
             map: SymbolMap::new(),
