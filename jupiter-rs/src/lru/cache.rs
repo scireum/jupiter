@@ -57,7 +57,7 @@
 //! * **LRU.REMOVE**: `LRU.REMOVE cache key` will remove the value associated with the given key.
 //!   Note that the value will be immediately gone without respecting any TTL.
 //! * **LRU.REMOVES**: `LRU.REMOVES cache secondary_key` will remove all values which were
-//!    associated with the given secondary key using `LRU.PUTS`.
+//!   associated with the given secondary key using `LRU.PUTS`.
 //!   Note that the value will be immediately gone without respecting any TTL.
 //! * **LRU.FLUSH**: `LRU.FLUSH cache` will wipe all contents of the given cache.
 //! * **LRU.STATS**: `LRU.STATS` will provide an overview of all active caches. `LRU.STATS cache`

@@ -520,9 +520,7 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         response
             .into_body()
             .map(|result| {
-                result.map_err(|error| {
-                    std::io::Error::new(std::io::ErrorKind::Other, format!("Error: {}", error))
-                })
+                result.map_err(|error| std::io::Error::other(format!("Error: {}", error)))
             })
             .into_async_read(),
     );
@@ -538,6 +536,12 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         .context("Failed to perform download.")?;
     file.flush().await.context("Failed to flush data to disk")?;
 
+    let previous_modified = tokio::fs::metadata(&effective_path)
+        .await
+        .ok()
+        .as_ref()
+        .and_then(|m| m.modified().ok());
+
     if tokio::fs::metadata(&effective_path).await.is_ok() {
         tokio::fs::remove_file(&effective_path)
             .await
@@ -546,6 +550,27 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     tokio::fs::rename(&tmp_path, &effective_path)
         .await
         .context("Failed to rename file to its effective name.")?;
+
+    let updated_meta = tokio::fs::metadata(&effective_path).await.ok();
+    let updated_modified = updated_meta.as_ref().and_then(|m| m.modified().ok());
+
+    if (updated_modified.is_some() && previous_modified.is_some())
+        && updated_modified.unwrap() <= previous_modified.unwrap()
+    {
+        let outdated_timestamp_file = std::fs::File::create(&effective_path).unwrap();
+        outdated_timestamp_file.set_modified(SystemTime::now())?;
+        let fixed_meta = tokio::fs::metadata(&effective_path).await.ok();
+        let fixed_modified = fixed_meta.as_ref().and_then(|m| m.modified().ok());
+        log::debug!(
+            "Updated last_modified, as it did not change: \n\
+            previous file: {:?}\n\
+            updated file:  {:?}\n\
+            after fix:     {:?}",
+            previous_modified,
+            updated_modified,
+            fixed_modified
+        );
+    }
 
     Ok(())
 }
