@@ -430,10 +430,16 @@ mod tests {
     async fn await_update(listener: &mut FileEventReceiver) -> Option<FileEvent> {
         tokio::select! {
             event = listener.recv() => match event {
-                                          Ok(event) => Some(event),
-                                          _ => None
-                                       },
-            _ = tokio::time::sleep(Duration::from_secs(2)) => None
+            Ok(event) => {
+                log::info!("Received FileEvent: {:?}", event);
+                Some(event)},
+            _ => {
+                log::info!("Did not receive FileEvent (recv-error): {:?}", event);
+                None}
+            },
+        _ = tokio::time::sleep(Duration::from_secs(2)) => {
+            log::info!("Did not receive FileEvent (timeout)");
+            None}
         }
     }
 
