@@ -85,11 +85,16 @@ steps:
         - tag
 
   - name: publish
-    image: plugins/docker
+    image: owncloudci/drone-docker-buildx
+    privileged: true
     volumes: *scireum_volumes
     settings:
       dockerfile: jupiter-io/Dockerfile
+      context: .
       repo: scireum/jupiter-io
+      platforms:
+        - linux/amd64
+        - linux/arm64
       tags:
         - "${DRONE_TAG}"
     environment:
