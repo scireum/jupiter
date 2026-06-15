@@ -43,4 +43,4 @@ time = "0.3"
 
 [dev-dependencies]
 # Achtung, die neuste Version (0.29+) schrottet die Tests wegen einem OS error 35
-redis = "0.21.2"
+redis = "1.2.2"
