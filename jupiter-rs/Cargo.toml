@@ -38,7 +38,7 @@ futures = "0.3"
 async-trait = "0.1"
 fnv = "1.0"
 csv = "1.4"
-itertools = "0.14"
+itertools = "0.15"
 time = "0.3"
 
 [dev-dependencies]
