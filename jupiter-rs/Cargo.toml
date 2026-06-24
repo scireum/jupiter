@@ -11,7 +11,7 @@ categories = ["caching", "database-implementations", "network-programming"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tokio = { version = "1.49", features = ["full"] }
+tokio = { version = "1.52", features = ["full"] }
 tokio-util = { version = "0.7", features = ["compat"] }
 tokio-stream = "0.1"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_info"] }
@@ -24,21 +24,21 @@ yaml-rust = "0.4"
 quick-xml = { version = "0.22", features = ["encoding"] }
 linked-hash-map = "0.5"
 encoding_rs = "0.8"
-arc-swap = "1.8"
+arc-swap = "1.9"
 lazy_static = "1.5"
 regex = "1.12"
 memcmp = "0.0"
 num_cpus = "1.17"
 chrono = "0.4"
 serde_json = "1.0"
-mock_instant = "0.5"
+mock_instant = "0.6"
 hyper = { version = "0.14", features = ["full"] }
 hyper-tls = "0.5"
 futures = "0.3"
 async-trait = "0.1"
 fnv = "1.0"
 csv = "1.4"
-itertools = "0.14"
+itertools = "0.15"
 time = "0.3"
 
 [dev-dependencies]

@@ -1,4 +1,4 @@
-![JUPITER](https://raw.githubusercontent.com/scireum/jupiter/master/docs/jupiter.png)
+![JUPITER](https://raw.githubusercontent.com/scireum/jupiter/main/docs/jupiter.png)
 
 **Jupiter** is a framework for wrapping **compute** or **memory intense** components for
 providing them as **high throughput** and **ultra low latency** services to
