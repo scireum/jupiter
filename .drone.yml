@@ -1,5 +1,9 @@
 ---
-scireum_volumes: &scireum_volumes
+scireum_cargo_volumes: &scireum_cargo_volumes
+  - name: cargo
+    path: /var/.cargo
+
+scireum_cargo_docker_volumes: &scireum_cargo_docker_volumes
   - name: docker_socket
     path: /var/run/docker.sock
   - name: cargo
@@ -18,7 +22,7 @@ clone:
 steps:
   - name: compile
     image: rust:1.92
-    volumes: *scireum_volumes
+    volumes: *scireum_cargo_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
@@ -34,7 +38,7 @@ steps:
 
   - name: test
     image: rust:1.92
-    volumes: *scireum_volumes
+    volumes: *scireum_cargo_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
@@ -52,7 +56,7 @@ steps:
 
   - name: package
     image: rust:1.92
-    volumes: *scireum_volumes
+    volumes: *scireum_cargo_volumes
     commands:
       - export CARGO_HOME="/var/.cargo"
       - echo $CARGO_HOME
@@ -86,7 +90,7 @@ steps:
 
   - name: publish
     image: plugins/docker
-    volumes: *scireum_volumes
+    volumes: *scireum_cargo_docker_volumes
     settings:
       dockerfile: jupiter-io/Dockerfile
       repo: scireum/jupiter-io
