@@ -91,7 +91,7 @@ steps:
   - name: publish
     image: owncloudci/drone-docker-buildx
     privileged: true
-    volumes: *scireum_volumes
+    volumes: *scireum_cargo_docker_volumes
     settings:
       dockerfile: jupiter-io/Dockerfile
       context: .
