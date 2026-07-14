@@ -48,10 +48,10 @@
 //! We still re-use buffers as much as possible and therefore can still provide excellent
 //! performance while also providing a convenient API. Note however, that in order to minimize the
 //! performance overhead, we need some unsafe blocks.
-use encoding_rs::Encoding;
+use quick_xml::errors::IllFormedError;
 use quick_xml::events::attributes::{Attribute, Attributes};
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::{Error, Reader};
+use quick_xml::{Decoder, Error, Reader, XmlVersion};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::BufRead;
@@ -124,24 +124,23 @@ pub struct Element<'a, B: BufRead> {
     data: BytesStart<'a>,
 }
 
-/// Provides an encoding aware view on the attributes of an `Element`.
+/// Provides an encoding-aware view on the attributes of an `Element`.
 pub struct AttributesView<'a> {
-    encoding: &'static Encoding,
+    decoder: Decoder,
     attributes: Attributes<'a>,
 }
 
-/// Provides an encoding aware view on an attribute of an `Element`.
+/// Provides an encoding-aware view on an attribute of an `Element`.
 pub struct AttributeView<'a> {
-    encoding: &'static Encoding,
+    decoder: Decoder,
     attribute: Attribute<'a>,
 }
 
-/// Provides an encoding aware handle which represents the text contents of an `Element`.
+/// Provides an encoding-aware handle which represents the text contents of an `Element`.
 pub struct Text<'a> {
-    encoding: &'static Encoding,
     handle: Option<BufferHandle>,
     buffer_manager: Option<&'a RefCell<BufferManager>>,
-    data: Cow<'a, [u8]>,
+    data: Cow<'a, str>,
 }
 
 impl<B: BufRead> PullReader<B> {
@@ -162,10 +161,10 @@ impl<B: BufRead> PullReader<B> {
     /// ```
     pub fn new(input: B) -> Self {
         let mut reader = Reader::from_reader(input);
-        let _ = reader
-            .trim_text(true)
-            .expand_empty_elements(true)
-            .check_end_names(true);
+        let config = reader.config_mut();
+        config.trim_text(true);
+        config.expand_empty_elements = true;
+        config.check_end_names = true;
 
         PullReader::from_reader(reader)
     }
@@ -195,7 +194,7 @@ impl<B: BufRead> PullReader<B> {
         let mut buffer_manager = self.buffer_manager.borrow_mut();
         let (buffer, handle) = buffer_manager.alloc();
         loop {
-            match self.reader.read_event(buffer)? {
+            match self.reader.read_event_into(buffer)? {
                 Event::Start(data) => {
                     return Ok(Element {
                         pending_close: false,
@@ -219,7 +218,9 @@ impl<B: BufRead> PullReader<B> {
                 }
                 Event::Eof => {
                     buffer_manager.release(handle);
-                    return Err(Error::UnexpectedEof("root".to_owned()));
+                    return Err(Error::IllFormed(IllFormedError::MissingEndTag(
+                        "root".to_owned(),
+                    )));
                 }
                 _ => {}
             }
@@ -237,7 +238,10 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(reader.root().unwrap().name().as_ref(), "xml");
     /// ```
     pub fn name(&'_ self) -> Cow<'_, str> {
-        self.reader.decode(self.data.name())
+        self.reader
+            .decoder()
+            .decode(self.data.name().into_inner())
+            .unwrap_or_default()
     }
 
     /// Provides access to the attributes of the element.
@@ -253,7 +257,7 @@ impl<B: BufRead> Element<'_, B> {
     /// ```
     pub fn attributes(&'_ self) -> AttributesView<'_> {
         AttributesView {
-            encoding: self.reader.encoding(),
+            decoder: self.reader.decoder(),
             attributes: self.data.attributes(),
         }
     }
@@ -306,7 +310,7 @@ impl<B: BufRead> Element<'_, B> {
         let (buffer, handle) = buffer_manager.alloc();
         loop {
             buffer.clear();
-            match self.reader.read_event(buffer)? {
+            match self.reader.read_event_into(buffer)? {
                 Event::Start(data) => {
                     return Ok(Some(Element {
                         pending_close: false,
@@ -327,7 +331,9 @@ impl<B: BufRead> Element<'_, B> {
                 }
                 Event::Eof => {
                     buffer_manager.release(handle);
-                    return Err(Error::UnexpectedEof("next_child".to_owned()));
+                    return Err(Error::IllFormed(IllFormedError::MissingEndTag(
+                        "next_child".to_owned(),
+                    )));
                 }
                 _ => {}
             }
@@ -351,9 +357,9 @@ impl<B: BufRead> Element<'_, B> {
         &'a mut self,
         name: impl AsRef<str>,
     ) -> quick_xml::Result<Option<Element<'a, B>>> {
-        let needle = self.reader.encoding().encode(name.as_ref()).0;
+        let needle = self.reader.decoder().encoding().encode(name.as_ref()).0;
         while let Some(element) = self.next_child()? {
-            if element.data.name() == needle.as_ref() {
+            if element.data.name().into_inner() == needle.as_ref() {
                 return Ok(Some(unsafe {
                     // This is sadly currently required due to the lexical scoping of the
                     // borrow checker. With future versions of Rust, this might be removed...
@@ -390,7 +396,7 @@ impl<B: BufRead> Element<'_, B> {
         let (buffer, handle) = buffer_manager.alloc();
         let mut depth = 1;
         loop {
-            match self.reader.read_event(buffer)? {
+            match self.reader.read_event_into(buffer)? {
                 Event::Start(_) => depth += 1,
                 Event::End(_) => {
                     depth -= 1;
@@ -399,16 +405,30 @@ impl<B: BufRead> Element<'_, B> {
                         return Ok(None);
                     }
                 }
-                Event::Eof => return Err(Error::UnexpectedEof("try_text".to_owned())),
-                Event::Text(data) | Event::CData(data) => {
+                Event::Eof => {
+                    return Err(Error::IllFormed(IllFormedError::MissingEndTag(
+                        "try_text".to_owned(),
+                    )))
+                }
+                Event::Text(data) => {
                     return Ok(Some(Text {
-                        encoding: self.reader.encoding(),
                         handle: Some(handle),
                         buffer_manager: Some(self.buffer_manager),
                         data: unsafe {
                             // See PullReader::root() for an explanation why this is needed and
                             // why we think that this is safe code :-P
-                            std::mem::transmute::<Cow<'_, [u8]>, Cow<'a, [u8]>>(data.unescaped()?)
+                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
+                        },
+                    }));
+                }
+                Event::CData(data) => {
+                    return Ok(Some(Text {
+                        handle: Some(handle),
+                        buffer_manager: Some(self.buffer_manager),
+                        data: unsafe {
+                            // See PullReader::root() for an explanation why this is needed and
+                            // why we think that this is safe code :-P
+                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
                         },
                     }));
                 }
@@ -432,14 +452,12 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(test.text().unwrap().contents().as_ref(), "");
     /// ```
     pub fn text(&'_ mut self) -> quick_xml::Result<Text<'_>> {
-        let encoding = self.reader.encoding();
         match self.try_text() {
             Ok(Some(text)) => Ok(text),
             Ok(None) => Ok(Text {
                 handle: None,
-                encoding,
                 buffer_manager: None,
-                data: Cow::Owned(Vec::new()),
+                data: Cow::Owned(String::new()),
             }),
             Err(error) => Err(error),
         }
@@ -460,7 +478,7 @@ impl<B: BufRead> Drop for Element<'_, B> {
             let mut depth = 1;
             let (tmp_buffer, tmp_handle) = buffer_manager.alloc();
             loop {
-                if let Ok(event) = self.reader.read_event(tmp_buffer) {
+                if let Ok(event) = self.reader.read_event_into(tmp_buffer) {
                     match event {
                         Event::Start(_) => depth += 1,
                         Event::End(_) => {
@@ -491,7 +509,9 @@ impl<B: BufRead> Drop for Element<'_, B> {
 impl AttributeView<'_> {
     /// Returns the name of the attribute.
     pub fn key(&'_ self) -> Cow<'_, str> {
-        self.encoding.decode(self.attribute.key).0
+        self.decoder
+            .decode(self.attribute.key.as_ref())
+            .unwrap_or_default()
     }
 
     /// Returns the text contents of the attribute.
@@ -499,8 +519,9 @@ impl AttributeView<'_> {
         Ok(Text {
             handle: None,
             buffer_manager: None,
-            encoding: self.encoding,
-            data: self.attribute.unescaped_value()?,
+            data: self
+                .attribute
+                .decoded_and_normalized_value(XmlVersion::Implicit1_0, self.decoder)?,
         })
     }
 }
@@ -512,10 +533,10 @@ impl<'a> Iterator for AttributesView<'a> {
         if let Some(attribute_result) = self.attributes.next() {
             match attribute_result {
                 Ok(attribute) => Some(Ok(AttributeView {
-                    encoding: self.encoding,
+                    decoder: self.decoder,
                     attribute,
                 })),
-                Err(error) => Some(Err(error)),
+                Err(error) => Some(Err(Error::InvalidAttr(error))),
             }
         } else {
             None
@@ -526,7 +547,7 @@ impl<'a> Iterator for AttributesView<'a> {
 impl Text<'_> {
     /// Returns the decoded text contents of this text element.
     pub fn contents(&'_ self) -> Cow<'_, str> {
-        self.encoding.decode(self.data.as_ref()).0
+        Cow::Borrowed(self.data.as_ref())
     }
 }
 
