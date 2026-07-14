@@ -382,9 +382,11 @@ mod tests {
     use crate::spawn;
     use crate::testing::{query_redis_async, test_async};
     use chrono::{TimeZone, Utc};
+    use http_body_util::Full;
     use hyper::header::HeaderValue;
-    use hyper::service::{make_service_fn, service_fn};
-    use hyper::{Body, Request, Response};
+    use hyper::service::service_fn;
+    use hyper::{Request, Response};
+    use hyper_util::rt::TokioIo;
     use std::convert::Infallible;
     use std::net::SocketAddr;
     use std::sync::Arc;
@@ -778,8 +780,10 @@ mod tests {
         .unwrap()
     }
 
-    async fn mini_http_server(req: Request<Body>) -> Result<Response<Body>, Infallible> {
-        let mut response = Response::new("test: true".into());
+    async fn mini_http_server(
+        req: Request<hyper::body::Incoming>,
+    ) -> Result<Response<Full<bytes::Bytes>>, Infallible> {
+        let mut response = Response::new(Full::new(bytes::Bytes::from("test: true")));
         if req.uri().path().contains("new") {
             let _ = response.headers_mut().insert(
                 hyper::header::LAST_MODIFIED,
@@ -814,13 +818,20 @@ mod tests {
                 let server_addr: SocketAddr = "127.0.0.1:7979"
                     .parse::<SocketAddr>()
                     .expect("Unable to parse socket address");
-                let make_svc = make_service_fn(|_conn| async {
-                    Ok::<_, Infallible>(service_fn(mini_http_server))
-                });
-
-                let server = hyper::server::Server::bind(&server_addr).serve(make_svc);
-                if let Err(e) = server.await {
-                    panic!("server error: {}", e);
+                let listener = tokio::net::TcpListener::bind(server_addr)
+                    .await
+                    .expect("Unable to bind test server");
+                loop {
+                    let (stream, _) = listener.accept().await.expect("Failed to accept");
+                    let io = TokioIo::new(stream);
+                    spawn!(async move {
+                        if let Err(e) = hyper::server::conn::http1::Builder::new()
+                            .serve_connection(io, service_fn(mini_http_server))
+                            .await
+                        {
+                            panic!("server error: {}", e);
+                        }
+                    });
                 }
             });
 
