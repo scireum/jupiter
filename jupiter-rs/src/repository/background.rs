@@ -13,8 +13,11 @@ use crate::spawn;
 use anyhow::Context;
 use chrono::DateTime;
 use futures::TryStreamExt;
-use hyper::{Body, Client, Request, Uri};
+use http_body_util::{BodyExt, Empty};
+use hyper::{Request, Uri};
 use hyper_tls::HttpsConnector;
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::TokioExecutor;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -458,17 +461,18 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
                 let request = Request::builder()
                     .method("HEAD")
                     .uri(url)
-                    .body(Body::empty())
+                    .body(Empty::<bytes::Bytes>::new())
                     .context("Failed to build request.")?;
                 let response = if url.starts_with("https") {
                     let https = HttpsConnector::new();
-                    let client = Client::builder().build::<_, Body>(https);
+                    let client = Client::builder(TokioExecutor::new()).build(https);
                     client
                         .request(request)
                         .await
                         .context("Failed fetching file headers.")?
                 } else {
-                    let client = Client::new();
+                    let client =
+                        Client::builder(TokioExecutor::new()).build_http::<Empty<bytes::Bytes>>();
                     client
                         .request(request)
                         .await
@@ -501,10 +505,10 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     let uri = Uri::from_str(url).context("Invalid uri")?;
     let response = if url.starts_with("https") {
         let https = HttpsConnector::new();
-        let client = Client::builder().build::<_, Body>(https);
+        let client = Client::builder(TokioExecutor::new()).build::<_, Empty<bytes::Bytes>>(https);
         client.get(uri).await?
     } else {
-        let client = Client::new();
+        let client = Client::builder(TokioExecutor::new()).build_http::<Empty<bytes::Bytes>>();
         client.get(uri).await?
     };
 
@@ -519,6 +523,7 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     let mut reader = to_tokio_async_read(
         response
             .into_body()
+            .into_data_stream()
             .map(|result| {
                 result.map_err(|error| std::io::Error::other(format!("Error: {}", error)))
             })
