@@ -403,39 +403,47 @@ async fn resp_protocol_loop(
         // We apply a timeout here, so that the condition of the while loop is checked every once in a while...
         match tokio::time::timeout(READ_WAIT_TIMEOUT, reader.read_buf(&mut input_buffer)).await {
             // Best case, we read some bytes from the socket..
-            Ok(Ok(bytes_read)) if bytes_read > 0 => match Request::parse(&input_buffer) {
-                // aaand we were able to parse a RESP Request from the given data in the buffer...
-                Ok(Some(request)) => {
-                    log::debug!("Received {}", request.command());
+            Ok(Ok(bytes_read)) if bytes_read > 0 => {
+                // A single read may contain several pipelined requests (e.g. redis-rs
+                // batches its CLIENT SETINFO handshake). We therefore drain all complete
+                // requests currently buffered before waiting for the next read - otherwise
+                // a buffered follow-up command would stall until the client times out.
+                loop {
+                    match Request::parse(&input_buffer) {
+                        // aaand we were able to parse a RESP Request from the given data in the buffer...
+                        Ok(Some(request)) => {
+                            log::debug!("Received {}", request.command());
 
-                    let watch = Instant::now();
-                    let request_len = request.len();
-                    match dispatcher.invoke(request, Some(&connection)).await {
-                        Ok(response_data) => {
-                            // We only update the monitoring infos if the command was successfully executed...
-                            connection.commands.add(watch.elapsed().as_micros() as i32);
-                            writer.write_all(response_data.as_ref()).await?;
-                            writer.flush().await?;
+                            let watch = Instant::now();
+                            let request_len = request.len();
+                            match dispatcher.invoke(request, Some(&connection)).await {
+                                Ok(response_data) => {
+                                    // We only update the monitoring infos if the command was successfully executed...
+                                    connection.commands.add(watch.elapsed().as_micros() as i32);
+                                    writer.write_all(response_data.as_ref()).await?;
+                                    writer.flush().await?;
+                                }
+                                Err(error) => {
+                                    handle_error(error, &mut writer).await?;
+
+                                    // Return from the loop to effectively close the connection...
+                                    return Ok(());
+                                }
+                            }
+
+                            input_buffer = clear_input_buffer(input_buffer, request_len);
                         }
                         Err(error) => {
-                            handle_error(error, &mut writer).await?;
+                            handle_protocol_error(error, &mut writer).await?;
 
                             // Return from the loop to effectively close the connection...
                             return Ok(());
                         }
+                        // A partial (or no) RESP request is present - stop draining and read more...
+                        _ => break,
                     }
-
-                    input_buffer = clear_input_buffer(input_buffer, request_len);
                 }
-                Err(error) => {
-                    handle_protocol_error(error, &mut writer).await?;
-
-                    // Return from the loop to effectively close the connection...
-                    return Ok(());
-                }
-                // A partial RESP request is present - do nothing so that we keep on reading...
-                _ => (),
-            },
+            }
 
             // Reading from the client return a zero length result -> the client wants to close the connection.
             // We therefore return from this loop.
