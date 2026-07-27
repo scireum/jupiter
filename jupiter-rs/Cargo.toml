@@ -19,7 +19,7 @@ bytes = "1.11"
 simplelog = "0.12"
 anyhow = "1.0"
 num-traits = "0.2"
-num-derive = "0.4"
+num-derive = "0.5"
 yaml-rust = "0.4"
 quick-xml = { version = "0.41", features = ["encoding"] }
 linked-hash-map = "0.5"
