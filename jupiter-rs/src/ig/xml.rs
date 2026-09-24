@@ -51,7 +51,7 @@
 use quick_xml::errors::IllFormedError;
 use quick_xml::events::attributes::{Attribute, Attributes};
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::{Decoder, Error, Reader, XmlVersion};
+use quick_xml::{Error, Reader, XmlVersion};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::BufRead;
@@ -126,13 +126,11 @@ pub struct Element<'a, B: BufRead> {
 
 /// Provides an encoding-aware view on the attributes of an `Element`.
 pub struct AttributesView<'a> {
-    decoder: Decoder,
     attributes: Attributes<'a>,
 }
 
 /// Provides an encoding-aware view on an attribute of an `Element`.
 pub struct AttributeView<'a> {
-    decoder: Decoder,
     attribute: Attribute<'a>,
 }
 
@@ -238,10 +236,7 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(reader.root().unwrap().name().as_ref(), "xml");
     /// ```
     pub fn name(&'_ self) -> Cow<'_, str> {
-        self.reader
-            .decoder()
-            .decode(self.data.name().into_inner())
-            .unwrap_or_default()
+        Cow::Borrowed(self.data.name().into_inner())
     }
 
     /// Provides access to the attributes of the element.
@@ -257,7 +252,6 @@ impl<B: BufRead> Element<'_, B> {
     /// ```
     pub fn attributes(&'_ self) -> AttributesView<'_> {
         AttributesView {
-            decoder: self.reader.decoder(),
             attributes: self.data.attributes(),
         }
     }
@@ -357,9 +351,8 @@ impl<B: BufRead> Element<'_, B> {
         &'a mut self,
         name: impl AsRef<str>,
     ) -> quick_xml::Result<Option<Element<'a, B>>> {
-        let needle = self.reader.decoder().encoding().encode(name.as_ref()).0;
         while let Some(element) = self.next_child()? {
-            if element.data.name().into_inner() == needle.as_ref() {
+            if element.data.name().into_inner() == name.as_ref() {
                 return Ok(Some(unsafe {
                     // This is sadly currently required due to the lexical scoping of the
                     // borrow checker. With future versions of Rust, this might be removed...
@@ -417,7 +410,7 @@ impl<B: BufRead> Element<'_, B> {
                         data: unsafe {
                             // See PullReader::root() for an explanation why this is needed and
                             // why we think that this is safe code :-P
-                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
+                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.into_inner())
                         },
                     }));
                 }
@@ -428,7 +421,7 @@ impl<B: BufRead> Element<'_, B> {
                         data: unsafe {
                             // See PullReader::root() for an explanation why this is needed and
                             // why we think that this is safe code :-P
-                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
+                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.into_inner())
                         },
                     }));
                 }
@@ -509,9 +502,7 @@ impl<B: BufRead> Drop for Element<'_, B> {
 impl AttributeView<'_> {
     /// Returns the name of the attribute.
     pub fn key(&'_ self) -> Cow<'_, str> {
-        self.decoder
-            .decode(self.attribute.key.as_ref())
-            .unwrap_or_default()
+        Cow::Borrowed(self.attribute.key.into_inner())
     }
 
     /// Returns the text contents of the attribute.
@@ -519,9 +510,7 @@ impl AttributeView<'_> {
         Ok(Text {
             handle: None,
             buffer_manager: None,
-            data: self
-                .attribute
-                .decoded_and_normalized_value(XmlVersion::Implicit1_0, self.decoder)?,
+            data: self.attribute.normalized_value(XmlVersion::Implicit1_0)?,
         })
     }
 }
@@ -532,10 +521,7 @@ impl<'a> Iterator for AttributesView<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(attribute_result) = self.attributes.next() {
             match attribute_result {
-                Ok(attribute) => Some(Ok(AttributeView {
-                    decoder: self.decoder,
-                    attribute,
-                })),
+                Ok(attribute) => Some(Ok(AttributeView { attribute })),
                 Err(error) => Some(Err(Error::InvalidAttr(error))),
             }
         } else {
