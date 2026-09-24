@@ -1,7 +1,9 @@
 //! Permits to load XML data using a pull principle.
 //!
 //! Using this facility permits to load large XML files in a very performant way. By providing
-//! external work buffer a zero copy operation can be achieved (unless a non UTF-8 encoding is used).
+//! external work buffers, elements and attributes are processed without copying. Only the text
+//! contents of an element are copied, as these may be split into several events by the parser
+//! (e.g. when entities like `&amp;` are present). Note that only UTF-8 input is supported.
 //!
 //! As the XML data being processed is most probably large and not needed all at once, the pull
 //! strategy operates on a "per element" level for which then child elements can be queried and
@@ -49,9 +51,10 @@
 //! performance while also providing a convenient API. Note however, that in order to minimize the
 //! performance overhead, we need some unsafe blocks.
 use quick_xml::errors::IllFormedError;
+use quick_xml::escape::resolve_predefined_entity;
 use quick_xml::events::attributes::{Attribute, Attributes};
 use quick_xml::events::{BytesStart, Event};
-use quick_xml::{Decoder, Error, Reader, XmlVersion};
+use quick_xml::{Error, Reader, XmlVersion};
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::io::BufRead;
@@ -126,27 +129,24 @@ pub struct Element<'a, B: BufRead> {
 
 /// Provides an encoding-aware view on the attributes of an `Element`.
 pub struct AttributesView<'a> {
-    decoder: Decoder,
     attributes: Attributes<'a>,
 }
 
 /// Provides an encoding-aware view on an attribute of an `Element`.
 pub struct AttributeView<'a> {
-    decoder: Decoder,
     attribute: Attribute<'a>,
 }
 
 /// Provides an encoding-aware handle which represents the text contents of an `Element`.
 pub struct Text<'a> {
-    handle: Option<BufferHandle>,
-    buffer_manager: Option<&'a RefCell<BufferManager>>,
     data: Cow<'a, str>,
 }
 
 impl<B: BufRead> PullReader<B> {
     /// Creates a new reader for the given input.
     ///
-    /// This reader will automatically trim and enforce proper nesting in the XML data.
+    /// This reader will automatically enforce proper nesting in the XML data. The text contents of
+    /// an element are trimmed as a whole (see `Element::try_text`).
     ///
     /// # Example
     /// ```
@@ -162,7 +162,6 @@ impl<B: BufRead> PullReader<B> {
     pub fn new(input: B) -> Self {
         let mut reader = Reader::from_reader(input);
         let config = reader.config_mut();
-        config.trim_text(true);
         config.expand_empty_elements = true;
         config.check_end_names = true;
 
@@ -238,10 +237,7 @@ impl<B: BufRead> Element<'_, B> {
     /// assert_eq!(reader.root().unwrap().name().as_ref(), "xml");
     /// ```
     pub fn name(&'_ self) -> Cow<'_, str> {
-        self.reader
-            .decoder()
-            .decode(self.data.name().into_inner())
-            .unwrap_or_default()
+        Cow::Borrowed(self.data.name().into_inner())
     }
 
     /// Provides access to the attributes of the element.
@@ -257,7 +253,6 @@ impl<B: BufRead> Element<'_, B> {
     /// ```
     pub fn attributes(&'_ self) -> AttributesView<'_> {
         AttributesView {
-            decoder: self.reader.decoder(),
             attributes: self.data.attributes(),
         }
     }
@@ -357,9 +352,8 @@ impl<B: BufRead> Element<'_, B> {
         &'a mut self,
         name: impl AsRef<str>,
     ) -> quick_xml::Result<Option<Element<'a, B>>> {
-        let needle = self.reader.decoder().encoding().encode(name.as_ref()).0;
         while let Some(element) = self.next_child()? {
-            if element.data.name().into_inner() == needle.as_ref() {
+            if element.data.name().into_inner() == name.as_ref() {
                 return Ok(Some(unsafe {
                     // This is sadly currently required due to the lexical scoping of the
                     // borrow checker. With future versions of Rust, this might be removed...
@@ -372,6 +366,10 @@ impl<B: BufRead> Element<'_, B> {
     }
 
     /// Tries to fetch the text contents of this element.
+    ///
+    /// This collects all text, CDATA sections and entity references up until the end tag of this
+    /// element (including the text of nested elements) and trims the result. Therefore no further
+    /// children can be read afterwards. Unknown entities are kept as is (e.g. `&foo;`).
     ///
     /// Returns none if this element has no text at all.
     ///
@@ -394,46 +392,22 @@ impl<B: BufRead> Element<'_, B> {
 
         let mut buffer_manager = self.buffer_manager.borrow_mut();
         let (buffer, handle) = buffer_manager.alloc();
-        let mut depth = 1;
-        loop {
-            match self.reader.read_event_into(buffer)? {
-                Event::Start(_) => depth += 1,
-                Event::End(_) => {
-                    depth -= 1;
-                    if depth == 0 {
-                        self.pending_close = true;
-                        return Ok(None);
-                    }
-                }
-                Event::Eof => {
-                    return Err(Error::IllFormed(IllFormedError::MissingEndTag(
-                        "try_text".to_owned(),
-                    )))
-                }
-                Event::Text(data) => {
-                    return Ok(Some(Text {
-                        handle: Some(handle),
-                        buffer_manager: Some(self.buffer_manager),
-                        data: unsafe {
-                            // See PullReader::root() for an explanation why this is needed and
-                            // why we think that this is safe code :-P
-                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
-                        },
-                    }));
-                }
-                Event::CData(data) => {
-                    return Ok(Some(Text {
-                        handle: Some(handle),
-                        buffer_manager: Some(self.buffer_manager),
-                        data: unsafe {
-                            // See PullReader::root() for an explanation why this is needed and
-                            // why we think that this is safe code :-P
-                            std::mem::transmute::<Cow<'_, str>, Cow<'a, str>>(data.decode()?)
-                        },
-                    }));
-                }
-                _ => {}
-            }
+        let result = read_text(self.reader, buffer);
+        buffer_manager.release(handle);
+
+        let text = result?;
+        self.pending_close = true;
+        let trimmed = text.trim();
+        if trimmed.is_empty() {
+            Ok(None)
+        } else if trimmed.len() == text.len() {
+            Ok(Some(Text {
+                data: Cow::Owned(text),
+            }))
+        } else {
+            Ok(Some(Text {
+                data: Cow::Owned(trimmed.to_owned()),
+            }))
         }
     }
 
@@ -455,8 +429,6 @@ impl<B: BufRead> Element<'_, B> {
         match self.try_text() {
             Ok(Some(text)) => Ok(text),
             Ok(None) => Ok(Text {
-                handle: None,
-                buffer_manager: None,
                 data: Cow::Owned(String::new()),
             }),
             Err(error) => Err(error),
@@ -509,19 +481,13 @@ impl<B: BufRead> Drop for Element<'_, B> {
 impl AttributeView<'_> {
     /// Returns the name of the attribute.
     pub fn key(&'_ self) -> Cow<'_, str> {
-        self.decoder
-            .decode(self.attribute.key.as_ref())
-            .unwrap_or_default()
+        Cow::Borrowed(self.attribute.key.into_inner())
     }
 
     /// Returns the text contents of the attribute.
     pub fn value(&'_ self) -> quick_xml::Result<Text<'_>> {
         Ok(Text {
-            handle: None,
-            buffer_manager: None,
-            data: self
-                .attribute
-                .decoded_and_normalized_value(XmlVersion::Implicit1_0, self.decoder)?,
+            data: self.attribute.normalized_value(XmlVersion::Implicit1_0)?,
         })
     }
 }
@@ -532,10 +498,7 @@ impl<'a> Iterator for AttributesView<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(attribute_result) = self.attributes.next() {
             match attribute_result {
-                Ok(attribute) => Some(Ok(AttributeView {
-                    decoder: self.decoder,
-                    attribute,
-                })),
+                Ok(attribute) => Some(Ok(AttributeView { attribute })),
                 Err(error) => Some(Err(Error::InvalidAttr(error))),
             }
         } else {
@@ -551,11 +514,154 @@ impl Text<'_> {
     }
 }
 
-impl Drop for Text<'_> {
-    /// In charge of releasing the internally allocated buffer for the underlying XML data.
-    fn drop(&mut self) {
-        if let Some(handle) = self.handle {
-            self.buffer_manager.unwrap().borrow_mut().release(handle);
+/// Collects all text, CDATA and entity references up until the end tag of the current element.
+fn read_text<B: BufRead>(
+    reader: &mut Reader<B>,
+    buffer: &mut Vec<u8>,
+) -> quick_xml::Result<String> {
+    let mut text = String::new();
+    let mut depth = 1;
+    loop {
+        buffer.clear();
+        match reader.read_event_into(buffer)? {
+            Event::Start(_) => depth += 1,
+            Event::End(_) => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(text);
+                }
+            }
+            Event::Text(data) => text.push_str(&data),
+            Event::CData(data) => text.push_str(&data),
+            Event::GeneralRef(entity) => match entity.resolve_char_ref()? {
+                Some(ch) => text.push(ch),
+                None => match resolve_predefined_entity(&entity) {
+                    Some(value) => text.push_str(value),
+                    None => {
+                        text.push('&');
+                        text.push_str(&entity);
+                        text.push(';');
+                    }
+                },
+            },
+            Event::Eof => {
+                return Err(Error::IllFormed(IllFormedError::MissingEndTag(
+                    "try_text".to_owned(),
+                )));
+            }
+            _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PullReader;
+
+    /// Reads the text of the first child of the root element.
+    fn text_of(xml: &[u8]) -> quick_xml::Result<String> {
+        let mut reader = PullReader::new(xml);
+        let mut root = reader.root()?;
+        let mut child = root.next_child()?.unwrap();
+        Ok(child.text()?.contents().into_owned())
+    }
+
+    #[test]
+    fn text_is_read_and_trimmed() {
+        assert_eq!(
+            text_of(b"<x><a>\n  foo bar  \n</a></x>").unwrap(),
+            "foo bar"
+        );
+        assert_eq!(
+            text_of(b"<x><a>Gr\xc3\xb6\xc3\x9fe</a></x>").unwrap(),
+            "Größe"
+        );
+        assert_eq!(text_of(b"<x><a>  </a></x>").unwrap(), "");
+        assert_eq!(text_of(b"<x><a/></x>").unwrap(), "");
+    }
+
+    #[test]
+    fn text_with_entities_is_fully_read() {
+        assert_eq!(text_of(b"<x><a>A &amp; B</a></x>").unwrap(), "A & B");
+        assert_eq!(
+            text_of(b"<x><a>&lt;b&gt; &quot;&apos;</a></x>").unwrap(),
+            "<b> \"'"
+        );
+        assert_eq!(text_of(b"<x><a>1&#48;&#x41;</a></x>").unwrap(), "10A");
+        assert_eq!(text_of(b"<x><a>&foo; bar</a></x>").unwrap(), "&foo; bar");
+    }
+
+    #[test]
+    fn text_with_cdata_is_fully_read() {
+        assert_eq!(text_of(b"<x><a><![CDATA[<b>]]></a></x>").unwrap(), "<b>");
+        assert_eq!(
+            text_of(b"<x><a>foo <![CDATA[bar]]> baz</a></x>").unwrap(),
+            "foo bar baz"
+        );
+    }
+
+    #[test]
+    fn text_includes_nested_elements() {
+        assert_eq!(text_of(b"<x><a>foo <b>bar</b></a></x>").unwrap(), "foo bar");
+    }
+
+    #[test]
+    fn attribute_values_are_unescaped() {
+        let mut reader = PullReader::new(r#"<x a="1 &amp; 2 &lt;3"/>"#.as_bytes());
+        let root = reader.root().unwrap();
+        let attribute = root.find_attribute("a").unwrap().unwrap();
+        assert_eq!(attribute.value().unwrap().contents(), "1 & 2 <3");
+        assert!(root.find_attribute("b").unwrap().is_none());
+    }
+
+    #[test]
+    fn dropped_elements_are_skipped() {
+        let mut reader = PullReader::new("<x><a><b>1</b><b>2</b></a><c>3</c></x>".as_bytes());
+        let mut root = reader.root().unwrap();
+        drop(root.next_child().unwrap());
+        let mut c = root.next_child().unwrap().unwrap();
+        assert_eq!(c.name(), "c");
+        assert_eq!(c.text().unwrap().contents(), "3");
+        drop(c);
+        assert!(root.next_child().unwrap().is_none());
+    }
+
+    #[test]
+    fn text_is_read_after_skipping_siblings() {
+        let data = "<x><a>1</a><b>2</b><a>3</a></x>";
+        let mut reader = PullReader::new(data.as_bytes());
+        let mut root = reader.root().unwrap();
+        assert_eq!(
+            root.find_next_child("b")
+                .unwrap()
+                .unwrap()
+                .text()
+                .unwrap()
+                .contents(),
+            "2"
+        );
+        assert_eq!(
+            root.find_next_child("a")
+                .unwrap()
+                .unwrap()
+                .text()
+                .unwrap()
+                .contents(),
+            "3"
+        );
+        assert!(root.find_next_child("a").unwrap().is_none());
+    }
+
+    #[test]
+    fn ill_formed_xml_is_reported() {
+        assert!(text_of(b"<x><a>foo</b></x>").is_err());
+        assert!(text_of(b"<x><a>foo").is_err());
+        assert!(PullReader::new("".as_bytes()).root().is_err());
+    }
+
+    #[test]
+    fn non_utf8_input_is_rejected() {
+        let latin1 = b"<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><x><a>Gr\xf6\xdfe</a></x>";
+        assert!(text_of(latin1).is_err());
     }
 }
