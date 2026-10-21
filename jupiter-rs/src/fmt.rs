@@ -1,5 +1,6 @@
 //! Provides formatting helpers for durations and byte sizes.
 use std::fmt::Write;
+use std::sync::LazyLock;
 use std::time::Duration;
 
 /// Formats a duration given in microseconds.
@@ -158,10 +159,8 @@ pub fn format_size(size_in_bytes: usize) -> String {
 /// assert_eq!(jupiter::fmt::parse_size("-1").is_err(), true);
 /// ```
 pub fn parse_size(str: impl AsRef<str>) -> anyhow::Result<usize> {
-    lazy_static::lazy_static! {
-        static ref NUMBER_AND_SUFFIX: regex::Regex =
-            regex::Regex::new(r"^ *(\d+) *([bBkKmMgGtT]?) *$").unwrap();
-    }
+    static NUMBER_AND_SUFFIX: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^ *(\d+) *([bBkKmMgGtT]?) *$").unwrap());
 
     match NUMBER_AND_SUFFIX.captures(str.as_ref()) {
         Some(captures) => {
@@ -213,10 +212,8 @@ pub fn parse_size(str: impl AsRef<str>) -> anyhow::Result<usize> {
 /// assert_eq!(jupiter::fmt::parse_duration("-1m").is_err(), true);
 /// ```
 pub fn parse_duration(str: impl AsRef<str>) -> anyhow::Result<Duration> {
-    lazy_static::lazy_static! {
-        static ref NUMBER_AND_SUFFIX: regex::Regex =
-            regex::Regex::new(r"^ *(\d+) *((ms|s|m|h|d|MS|S|M|H|D)?) *$").unwrap();
-    }
+    static NUMBER_AND_SUFFIX: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(r"^ *(\d+) *((ms|s|m|h|d|MS|S|M|H|D)?) *$").unwrap());
 
     match NUMBER_AND_SUFFIX.captures(str.as_ref()) {
         Some(captures) => {

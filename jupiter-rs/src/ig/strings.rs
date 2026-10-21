@@ -10,7 +10,6 @@
 //! to keep the data around and the last byte to store the actual length. Note that we do not need
 //! to distinguish inline from boxed strings, as we simply can use two enum constants of `Node`
 //! to keep track of the actual string type.
-use memcmp::Memcmp;
 use std::fmt::{Debug, Display, Formatter};
 
 /// Provides a compact representation of a heap allocated immutable string.
@@ -134,7 +133,7 @@ impl PartialEq for InlineString {
     fn eq(&self, other: &Self) -> bool {
         if self.size == other.size {
             let size = self.size as usize;
-            self.data[0..size].memcmp(&other.data[0..size])
+            self.data[0..size] == other.data[0..size]
         } else {
             false
         }

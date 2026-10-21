@@ -165,14 +165,13 @@ mod testing {
     use std::sync::Mutex;
     use tokio::time::Duration;
 
-    lazy_static::lazy_static! {
-        /// Provides a global lock which has to be acquired if a test operates on shared
-        /// resources. This would either be our test port (1503) on which we start our
-        /// local server for integrations tests or the repository which operates on the
-        /// file system. Using this lock, we can still execute all other tests in parallel
-        /// and only block if required.
-        pub static ref SHARED_TEST_RESOURCES: Mutex<()> = Mutex::new(());
-    }
+    /// Provides a global lock which has to be acquired if a test operates on shared
+    /// resources. This would either be our test port (1503) on which we start our
+    /// local server for integrations tests or the repository which operates on the
+    /// file system. Using this lock, we can still execute all other tests in parallel
+    /// and only block if required.
+    pub static SHARED_TEST_RESOURCES: std::sync::LazyLock<Mutex<()>> =
+        std::sync::LazyLock::new(|| Mutex::new(()));
 
     /// Executes async code within a single threaded tokio runtime.
     pub fn test_async<F: std::future::Future>(future: F) {
