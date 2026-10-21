@@ -12,7 +12,6 @@ use crate::repository::{BackgroundEvent, FileEvent, Repository, RepositoryFile};
 use crate::spawn;
 use anyhow::Context;
 use chrono::DateTime;
-use futures::TryStreamExt;
 use http_body_util::{BodyExt, Empty};
 use hyper::{Request, Uri};
 use hyper_tls::HttpsConnector;
@@ -520,15 +519,10 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
         ));
     }
 
-    let mut reader = to_tokio_async_read(
-        response
-            .into_body()
-            .into_data_stream()
-            .map(|result| {
-                result.map_err(|error| std::io::Error::other(format!("Error: {}", error)))
-            })
-            .into_async_read(),
-    );
+    let mut reader =
+        tokio_util::io::StreamReader::new(response.into_body().into_data_stream().map(|result| {
+            result.map_err(|error| std::io::Error::other(format!("Error: {}", error)))
+        }));
 
     let mut tmp_path = effective_path.clone();
     let _ = tmp_path.set_extension(current_extension + ".part");
@@ -578,8 +572,4 @@ async fn fetch_file_command(path: &str, url: &str, force: bool) -> anyhow::Resul
     }
 
     Ok(())
-}
-
-fn to_tokio_async_read(r: impl futures::io::AsyncRead) -> impl tokio::io::AsyncRead {
-    tokio_util::compat::FuturesAsyncReadCompatExt::compat(r)
 }

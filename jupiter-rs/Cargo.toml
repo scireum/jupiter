@@ -12,7 +12,7 @@ categories = ["caching", "database-implementations", "network-programming"]
 
 [dependencies]
 tokio = { version = "1.52", features = ["full"] }
-tokio-util = { version = "0.7", features = ["compat"] }
+tokio-util = { version = "0.7", features = ["io"] }
 tokio-stream = "0.1"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_info"] }
 bytes = "1.11"
@@ -23,26 +23,23 @@ num-derive = "0.5"
 yaml-rust = "0.4"
 quick-xml = { version = "0.42", features = ["encoding"] }
 linked-hash-map = "0.5"
-encoding_rs = "0.8"
 arc-swap = "1.9"
-lazy_static = "1.5"
 regex = "1.12"
-memcmp = "0.0"
-num_cpus = "1.17"
 chrono = "0.4"
 serde_json = "1.0"
-mock_instant = "0.6"
 hyper = { version = "1.10", features = ["full"] }
 hyper-util = { version = "0.1", features = ["client-legacy", "tokio", "http1"] }
 http-body-util = "0.1"
 hyper-tls = "0.6"
-futures = "0.3"
 async-trait = "0.1"
 fnv = "1.0"
 csv = "1.4"
 itertools = "0.15"
+# Only needed because simplelog's re-exported format_description! macro expands to
+# unqualified `time` paths - not used directly anywhere.
 time = "0.3"
 
 [dev-dependencies]
+mock_instant = "0.6"
 # Achtung, die neuste Version (0.29+) schrottet die Tests wegen einem OS error 35
 redis = "1.3.0"

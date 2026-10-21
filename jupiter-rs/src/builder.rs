@@ -200,11 +200,10 @@ impl Builder {
         }
 
         log::info!(
-            "||. JUPITER (v {} - rev {}) running on {} core(s) in {} CPU(s)",
+            "||. JUPITER (v {} - rev {}) running on {} core(s)",
             JUPITER_VERSION,
             JUPITER_REVISION,
-            num_cpus::get(),
-            num_cpus::get_physical()
+            std::thread::available_parallelism().map_or(0, |n| n.get())
         );
 
         if self.enable_signals {
