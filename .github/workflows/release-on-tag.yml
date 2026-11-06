@@ -1,0 +1,92 @@
+name: Release on Tag
+on:
+  push:
+    tags:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: [ self-hosted, linux, x64 ]
+    timeout-minutes: 30
+    container:
+      image: scireum/rust-build:1.92-scireum1
+      volumes:
+        - /var/.cargo:/var/.cargo
+    env:
+      CARGO_HOME: /var/.cargo
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7.0.1
+
+      - name: Replace version
+        run: |
+          sed -i "s/0.0.1/$GITHUB_REF_NAME/g" jupiter-rs/Cargo.toml jupiter-io/Cargo.toml
+          sed -i "s/DEVELOPMENT-SNAPSHOT/$GITHUB_REF_NAME/g" jupiter-rs/src/lib.rs
+          sed -i "s/NO-REVISION/$GITHUB_SHA/g" jupiter-rs/src/lib.rs
+
+      - name: Check and test jupiter-rs
+        working-directory: jupiter-rs
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+          cargo test
+
+      - name: Check and test jupiter-io
+        working-directory: jupiter-io
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+          cargo test
+
+      # Published only once both crates passed, so a failing jupiter-io no longer leaves a crate without an image
+      - name: Publish jupiter crate
+        working-directory: jupiter-rs
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --allow-dirty
+
+  # Runs on the host rather than in the build container, as it needs the Docker daemon
+  publish:
+    needs: package
+    runs-on: [ self-hosted, linux, x64 ]
+    # The arm64 image is compiled under QEMU emulation, which takes a while
+    timeout-minutes: 120
+    env:
+      IMAGE: scireum/jupiter-io:${{ github.ref_name }}
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7.0.1
+
+      - name: Replace version
+        run: |
+          sed -i "s/0.0.1/$GITHUB_REF_NAME/g" jupiter-rs/Cargo.toml jupiter-io/Cargo.toml
+          sed -i "s/DEVELOPMENT-SNAPSHOT/$GITHUB_REF_NAME/g" jupiter-rs/src/lib.rs
+          sed -i "s/NO-REVISION/$GITHUB_SHA/g" jupiter-rs/src/lib.rs
+
+      # Registers the QEMU handlers on the host, which shares them with all its runners
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4.4.0
+
+      # A builder of its own per run, so parallel runs on the shared Docker daemon don't get in each other's way
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.4.1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4.8.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PUSH_TOKEN }}
+
+      - name: Build and push Docker image
+        run: docker buildx build --platform linux/amd64,linux/arm64 -f jupiter-io/Dockerfile -t "$IMAGE" --push .
+
+      - name: Notify scireum-dev MIO about new version
+        run: |
+          curl -X POST -H 'Content-type: application/json' --data '{
+            "channel": "scireum-dev",
+            "text": "A new version is available: **${{ github.event.repository.name }}**: [${{ github.ref_name }}](https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }})"
+          }' ${{ secrets.MEMOIO_SCIREUM_DEV }}

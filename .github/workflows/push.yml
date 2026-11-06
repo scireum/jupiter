@@ -1,0 +1,31 @@
+name: Compile on push
+on:
+  push:
+    # Tags are built by their own workflow
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: [ self-hosted, linux, x64 ]
+    timeout-minutes: 30
+    container:
+      image: scireum/rust-build:1.92-scireum1
+      volumes:
+        - /var/.cargo:/var/.cargo
+    env:
+      CARGO_HOME: /var/.cargo
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7.0.1
+
+      - name: Compile jupiter-rs
+        working-directory: jupiter-rs
+        run: cargo build
+
+      - name: Compile jupiter-io
+        working-directory: jupiter-io
+        run: cargo build
