@@ -1,0 +1,33 @@
+name: Execute Tests on Pull Request
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs when new commits are pushed to the PR
+concurrency:
+  group: pr-test-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: [ self-hosted, linux, x64 ]
+    timeout-minutes: 30
+    container:
+      image: scireum/rust-build:1.92-scireum1
+      volumes:
+        - /var/.cargo:/var/.cargo
+    env:
+      CARGO_HOME: /var/.cargo
+      RUSTFLAGS: -Dwarnings
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v7.0.1
+
+      - name: Check and test jupiter-rs
+        working-directory: jupiter-rs
+        run: |
+          cargo fmt -- --check
+          cargo clippy -- -D warnings
+          cargo test
