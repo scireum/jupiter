@@ -8,16 +8,20 @@ permissions:
   contents: read
 
 jobs:
-  package:
+  # A single job within the build container, which reaches the Docker daemon of the host through its socket. Jobs
+  # running directly on the host would fail to clean the workspace, as the container leaves root-owned files there.
+  release:
     runs-on: [ self-hosted, linux, x64 ]
-    timeout-minutes: 30
+    # The arm64 image is compiled under QEMU emulation, which takes a while
+    timeout-minutes: 120
     container:
-      image: scireum/rust-build:1.92-scireum1
+      image: scireum/rust-build:1.92-scireum2
       volumes:
         - /var/.cargo:/var/.cargo
     env:
       CARGO_HOME: /var/.cargo
       RUSTFLAGS: -Dwarnings
+      IMAGE: scireum/jupiter-io:${{ github.ref_name }}
     steps:
       - name: Checkout project
         uses: actions/checkout@v7.0.1
@@ -48,24 +52,6 @@ jobs:
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish --allow-dirty
-
-  # Runs on the host rather than in the build container, as it needs the Docker daemon
-  publish:
-    needs: package
-    runs-on: [ self-hosted, linux, x64 ]
-    # The arm64 image is compiled under QEMU emulation, which takes a while
-    timeout-minutes: 120
-    env:
-      IMAGE: scireum/jupiter-io:${{ github.ref_name }}
-    steps:
-      - name: Checkout project
-        uses: actions/checkout@v7.0.1
-
-      - name: Replace version
-        run: |
-          sed -i "s/0.0.1/$GITHUB_REF_NAME/g" jupiter-rs/Cargo.toml jupiter-io/Cargo.toml
-          sed -i "s/DEVELOPMENT-SNAPSHOT/$GITHUB_REF_NAME/g" jupiter-rs/src/lib.rs
-          sed -i "s/NO-REVISION/$GITHUB_SHA/g" jupiter-rs/src/lib.rs
 
       # Registers the QEMU handlers on the host, which shares them with all its runners
       - name: Set up QEMU
